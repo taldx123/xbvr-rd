@@ -1,0 +1,102 @@
+# =============================================================
+#  XBVR Stack – docker-compose.yml
+#  All secrets/settings are read from the env file passed via --env-file.
+# =============================================================
+
+name: xbvr-stack
+
+services:
+
+  # -----------------------------------------------------------
+  # MariaDB – database backend for XBVR
+  # -----------------------------------------------------------
+  mariadb:
+    image: mariadb:lts
+    container_name: xbvr-mariadb
+    environment:
+      MARIADB_RANDOM_ROOT_PASSWORD: "1"          # root pwd is auto-generated (safer)
+      MARIADB_USER: ${MARIADB_USER}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD}
+      MARIADB_DATABASE: ${MARIADB_DATABASE}
+      MARIADB_AUTO_UPGRADE: "1"                 # keeps healthcheck users/config in sync for existing datadirs
+    volumes:
+      - ../data/mariadb:/var/lib/mysql             # persistent DB files
+      - ./mariadb/my.cnf:/etc/mysql/conf.d/xbvr.cnf:ro   # tuning config
+    ports:
+      - "${MARIADB_PORT}:3306"
+    command: --sql_mode="NO_ENGINE_SUBSTITUTION"
+    restart: unless-stopped
+    networks:
+      - xbvr-net
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mariadb-admin ping --host=127.0.0.1 --protocol=tcp --user=$$MARIADB_USER --password=$$MARIADB_PASSWORD --silent",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # -----------------------------------------------------------
+  # XBVR – main application
+  # -----------------------------------------------------------
+  xbvr:
+    # image: ghcr.io/xbapps/xbvr:latest
+    image: ghcr.io/mvdeckard/xbvr:latest
+    container_name: xbvr
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    environment:
+      TZ: ${TZ}
+      # MariaDB connection string – credentials come from .env
+      DATABASE_URL: "mysql://${MARIADB_USER}:${MARIADB_PASSWORD}@mariadb:3306/${MARIADB_DATABASE}?charset=utf8mb4&collation=utf8mb4_unicode_ci&parseTime=True&loc=Local"
+      DB_CONNECTION_POOL_SIZE: "${DB_CONNECTION_POOL_SIZE}"
+      CONCURRENT_SCRAPERS: "${CONCURRENT_SCRAPERS}"
+    ports:
+      - "${XBVR_PORT}:9999"
+    volumes:
+      - realdebrid:/videos/realdebrid             # Real-Debrid mount via rclone plugin
+      - ../data/xbvr:/root/.config/xbvr           # XBVR config & metadata
+      - type: bind
+        source: ${TS_PATH}
+        target: /videos/TS                        # TS
+      - type: bind
+        source: ${JAV_PATH}
+        target: /videos/JAV                       # JAV
+    restart: unless-stopped
+    networks:
+      - xbvr-net
+
+# ---------------------------------------------------------------
+# Networks
+# ---------------------------------------------------------------
+networks:
+  xbvr-net:
+    driver: bridge
+
+# ---------------------------------------------------------------
+# Volumes
+# "realdebrid" is managed by docker-compose with the rclone driver.
+# It will be created when the stack starts and removed when stopped with "-v" flag.
+# Deploy sequence: 
+#   1. Run the PowerShell helper → option 2 to install the rclone plugin
+#   2. Run option 3 to start the stack (compose will create the volume)
+# ---------------------------------------------------------------
+volumes:
+  realdebrid:
+    driver: rclone
+    driver_opts:
+      type: "realdebrid"
+      realdebrid-api_key: "${RD_API_KEY}"
+      # poll_interval: "0"
+      allow_other: "true"
+      dir_cache_time: "10s"
+      # buffer_size: "32M"
+      vfs_cache_mode: "full"
+      vfs_read_ahead: "256M"
+      vfs_cache_max_size: "75G"
+      vfs_cache_max_age: "12h"
+      # vfs_cache_min_free_space: "20G"
