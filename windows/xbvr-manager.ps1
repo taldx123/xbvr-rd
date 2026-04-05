@@ -134,12 +134,17 @@ function Start-Stack {
     Write-Host "  Real-Debrid volume will be created by docker compose..." -ForegroundColor DarkGray
     Push-Location $DOCKER_DIR
     try {
-        docker compose --env-file $ENV_FILE up -d
-        Write-Host ""
-        Write-Host "OK: Stack started." -ForegroundColor Green
-        $port = Read-EnvValue "XBVR_PORT"
-        if (-not $port) { $port = "9999" }
-        Write-Host "  XBVR web UI --> http://localhost:$port" -ForegroundColor Cyan
+        docker compose --env-file $ENV_FILE up -d --wait --wait-timeout 180
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host ""
+            Write-Host "OK: Stack started." -ForegroundColor Green
+            $port = Read-EnvValue "XBVR_PORT"
+            if (-not $port) { $port = "9999" }
+            Write-Host "  XBVR web UI --> http://localhost:$port" -ForegroundColor Cyan
+        }
+        else {
+            Write-Host "ERROR: Failed to start stack or XBVR did not become healthy." -ForegroundColor Red
+        }
     }
     catch {
         Write-Host "ERROR: Failed to start stack: $_" -ForegroundColor Red
@@ -329,12 +334,17 @@ function Invoke-FullSetup {
     }
     Push-Location $DOCKER_DIR
     try {
-        docker compose --env-file $ENV_FILE up -d
-        Write-Host ''
-        Write-Host 'OK: Stack started.' -ForegroundColor Green
-        $port = Read-EnvValue 'XBVR_PORT'
-        if (-not $port) { $port = '9999' }
-        Write-Host "  XBVR web UI --> http://localhost:$port" -ForegroundColor Cyan
+        docker compose --env-file $ENV_FILE up -d --wait --wait-timeout 180
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host ''
+            Write-Host 'OK: Stack started.' -ForegroundColor Green
+            $port = Read-EnvValue 'XBVR_PORT'
+            if (-not $port) { $port = '9999' }
+            Write-Host "  XBVR web UI --> http://localhost:$port" -ForegroundColor Cyan
+        }
+        else {
+            Write-Host 'ERROR: Failed to start stack or XBVR did not become healthy.' -ForegroundColor Red
+        }
     }
     catch {
         Write-Host "ERROR: Failed to start stack: $_" -ForegroundColor Red

@@ -69,6 +69,18 @@ services:
     restart: unless-stopped
     networks:
       - xbvr-net
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import http.client, sys; conn = http.client.HTTPConnection('127.0.0.1', 9999, timeout=5); conn.request('GET', '/api.json'); res = conn.getresponse(); sys.exit(0 if 200 <= res.status < 400 else 1)",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
 
 # ---------------------------------------------------------------
 # Networks

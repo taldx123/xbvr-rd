@@ -183,6 +183,19 @@ verify_rclone_plugin() {
   fi
 }
 
+wait_for_xbvr_healthy() {
+  if [[ ! -f "${COMPOSE_FILE}" ]]; then
+    write_line "${COLOR_RED}" "ERROR: docker-compose.yml not found at ${COMPOSE_FILE}"
+    return 1
+  fi
+
+  write_line "${COLOR_DARKGRAY}" "  Waiting for XBVR to report healthy..."
+  (
+    cd "${DOCKER_DIR}" || exit 1
+    docker compose --env-file "${ENV_FILE}" up -d --wait --wait-timeout 180 xbvr
+  )
+}
+
 start_stack() {
   confirm_docker_running || {
     pause_for_user
@@ -206,7 +219,7 @@ start_stack() {
   write_line "${COLOR_DARKGRAY}" "  Real-Debrid volume will be created by docker compose..."
   (
     cd "${DOCKER_DIR}" || exit 1
-    docker compose --env-file "${ENV_FILE}" up -d
+    docker compose --env-file "${ENV_FILE}" up -d --wait --wait-timeout 180
   )
   local status=$?
   if [[ ${status} -eq 0 ]]; then
@@ -220,15 +233,9 @@ start_stack() {
     local url="http://localhost:${port}"
     write_line "${COLOR_CYAN}" "  XBVR web UI --> ${url}"
 
-    if command -v google-chrome >/dev/null 2>&1; then
-      google-chrome --incognito "${url}" &
-    elif command -v chromium >/dev/null 2>&1; then
-      chromium --incognito "${url}" &
-    elif command -v chromium-browser >/dev/null 2>&1; then
-      chromium-browser --incognito "${url}" &
-    fi
+    open_browser
   else
-    write_line "${COLOR_RED}" "ERROR: Failed to start stack."
+    write_line "${COLOR_RED}" "ERROR: Failed to start stack or XBVR did not become healthy."
   fi
   pause_for_user
 }
@@ -312,8 +319,14 @@ restart_stack() {
   local status=$?
   if [[ ${status} -eq 0 ]]; then
     printf '\n'
-    write_line "${COLOR_GREEN}" "OK: Stack restarted."
-    open_browser
+    if wait_for_xbvr_healthy; then
+      printf '\n'
+      write_line "${COLOR_GREEN}" "OK: Stack restarted."
+      open_browser
+    else
+      printf '\n'
+      write_line "${COLOR_RED}" "ERROR: XBVR did not become healthy after restart."
+    fi
   else
     write_line "${COLOR_RED}" "ERROR: Failed to restart the stack."
   fi
@@ -340,8 +353,14 @@ restart_xbvr_service() {
   local status=$?
   if [[ ${status} -eq 0 ]]; then
     printf '\n'
-    write_line "${COLOR_GREEN}" "OK: XBVR restarted."
-    open_browser
+    if wait_for_xbvr_healthy; then
+      printf '\n'
+      write_line "${COLOR_GREEN}" "OK: XBVR restarted."
+      open_browser
+    else
+      printf '\n'
+      write_line "${COLOR_RED}" "ERROR: XBVR did not become healthy after restart."
+    fi
   else
     write_line "${COLOR_RED}" "ERROR: Failed to restart XBVR."
   fi
@@ -365,35 +384,19 @@ open_browser() {
   fi
 }
 
-restart_xbvr_service() {
+open_xbvr_chrome_incognito() {
   confirm_docker_running || {
     pause_for_user
     return
   }
 
-  if [[ ! -f "${COMPOSE_FILE}" ]]; then
-    write_line "${COLOR_RED}" "ERROR: docker-compose.yml not found at ${COMPOSE_FILE}"
-    pause_for_user
-    return
-  fi
-
-  write_line "${COLOR_YELLOW}" "Restarting XBVR service only..."
-  (
-    cd "${DOCKER_DIR}" || exit 1
-    docker compose --env-file "${ENV_FILE}" restart xbvr
-  )
-  local status=$?
-  if [[ ${status} -eq 0 ]]; then
+  if wait_for_xbvr_healthy; then
     printf '\n'
-    write_line "${COLOR_GREEN}" "OK: XBVR restarted."
+    open_browser
   else
-    write_line "${COLOR_RED}" "ERROR: Failed to restart XBVR."
+    printf '\n'
+    write_line "${COLOR_RED}" "ERROR: XBVR did not become healthy in time."
   fi
-  pause_for_user
-}
-
-open_xbvr_chrome_incognito() {
-  open_browser
   pause_for_user
 }
 
@@ -614,7 +617,7 @@ invoke_full_setup() {
 
   (
     cd "${DOCKER_DIR}" || exit 1
-    docker compose --env-file "${ENV_FILE}" up -d
+    docker compose --env-file "${ENV_FILE}" up -d --wait --wait-timeout 180
   )
   local status=$?
   if [[ ${status} -eq 0 ]]; then
@@ -628,15 +631,9 @@ invoke_full_setup() {
     local url="http://localhost:${port}"
     write_line "${COLOR_CYAN}" "  XBVR web UI --> ${url}"
 
-    if command -v google-chrome >/dev/null 2>&1; then
-      google-chrome --incognito "${url}" &
-    elif command -v chromium >/dev/null 2>&1; then
-      chromium --incognito "${url}" &
-    elif command -v chromium-browser >/dev/null 2>&1; then
-      chromium-browser --incognito "${url}" &
-    fi
+    open_browser
   else
-    write_line "${COLOR_RED}" "ERROR: Failed to start stack."
+    write_line "${COLOR_RED}" "ERROR: Failed to start stack or XBVR did not become healthy."
   fi
 
   pause_for_user
