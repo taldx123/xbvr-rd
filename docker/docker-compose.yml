@@ -44,7 +44,7 @@ services:
   # -----------------------------------------------------------
   xbvr:
     # image: ghcr.io/xbapps/xbvr:latest
-    image: ghcr.io/mvdeckard/xbvr:latest
+    image: ghcr.io/xbapps/xbvr:0.4.39
     container_name: xbvr
     depends_on:
       mariadb:
