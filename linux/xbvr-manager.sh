@@ -375,16 +375,20 @@ open_browser() {
   fi
   local url="http://localhost:${port}"
 
-  if command -v google-chrome >/dev/null 2>&1; then
-    google-chrome --incognito "${url}" &
+  # Start the browser in a separate session so Ctrl+C in this script does not kill it.
+  if command -v brave-browser >/dev/null 2>&1; then
+    setsid -f brave-browser --incognito "${url}" </dev/null >/dev/null 2>&1 ||
+      nohup brave-browser --incognito "${url}" </dev/null >/dev/null 2>&1 &
   elif command -v chromium >/dev/null 2>&1; then
-    chromium --incognito "${url}" &
+    setsid -f chromium --incognito "${url}" </dev/null >/dev/null 2>&1 ||
+      nohup chromium --incognito "${url}" </dev/null >/dev/null 2>&1 &
   elif command -v chromium-browser >/dev/null 2>&1; then
-    chromium-browser --incognito "${url}" &
+    setsid -f chromium-browser --incognito "${url}" </dev/null >/dev/null 2>&1 ||
+      nohup chromium-browser --incognito "${url}" </dev/null >/dev/null 2>&1 &
   fi
 }
 
-open_xbvr_chrome_incognito() {
+open_xbvr_brave_incognito() {
   confirm_docker_running || {
     pause_for_user
     return
@@ -538,13 +542,6 @@ invoke_cleanup() {
     write_line "${COLOR_DARKGRAY}" "  Already gone."
   fi
 
-  local port
-  port="$(read_env_value "XBVR_PORT")"
-  if [[ -z "${port}" ]]; then
-    port="9999"
-  fi
-  local url="http://localhost:${port}"
-
   local cache_reset_failed="false"
   if ! reset_rclone_cache_dir; then
     cache_reset_failed="true"
@@ -560,13 +557,7 @@ invoke_cleanup() {
   local should_open="${1:-false}"
 
   if [[ "${should_open}" == "true" ]]; then
-    if command -v google-chrome >/dev/null 2>&1; then
-      google-chrome --incognito "${url}" &
-    elif command -v chromium >/dev/null 2>&1; then
-      chromium --incognito "${url}" &
-    elif command -v chromium-browser >/dev/null 2>&1; then
-      chromium-browser --incognito "${url}" &
-    fi
+    open_browser
   fi
 
   pause_for_user
@@ -653,7 +644,7 @@ while true; do
   printf '%s\n' "  [5] Stop stack + remove volumes + clear rclone cache"
   printf '%s\n' "  [8] View live logs"
   printf '%s\n' "  [9] Restart menu  (full stack or XBVR only)"
-  printf '%s\n' "  [O] Open XBVR in Chrome incognito"
+  printf '%s\n' "  [O] Open XBVR in Brave incognito"
   printf '\n'
   write_line "${COLOR_DARKCYAN}" "  MAINTENANCE"
   printf '%s\n' "  [6] Partial cleanup (remove plugin + clear cache)"
@@ -675,7 +666,7 @@ while true; do
     7) invoke_cleanup ;;
     8) show_logs ;;
     9) restart_menu ;;
-    O) open_xbvr_chrome_incognito ;;
+    O) open_xbvr_brave_incognito ;;
     Q)
       write_line "${COLOR_CYAN}" "Bye!"
       exit 0

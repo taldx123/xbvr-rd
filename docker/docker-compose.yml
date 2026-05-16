@@ -55,6 +55,9 @@ services:
       DATABASE_URL: "mysql://${MARIADB_USER}:${MARIADB_PASSWORD}@mariadb:3306/${MARIADB_DATABASE}?charset=utf8mb4&collation=utf8mb4_unicode_ci&parseTime=True&loc=Local"
       DB_CONNECTION_POOL_SIZE: "${DB_CONNECTION_POOL_SIZE}"
       CONCURRENT_SCRAPERS: "${CONCURRENT_SCRAPERS}"
+      # DEBUG: true
+      # GIN_MODE: debug
+      # DATABASE_DEBUG: true
     ports:
       - "${XBVR_PORT}:9999"
     volumes:
@@ -66,6 +69,9 @@ services:
       - type: bind
         source: ${JAV_PATH}
         target: /videos/JAV                       # JAV
+      - type: bind
+        source: /mnt/localdisk/PT
+        target: /videos/PT                       # PT
     restart: unless-stopped
     networks:
       - xbvr-net
