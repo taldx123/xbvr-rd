@@ -44,6 +44,80 @@ write_line() {
   printf '%s%s%s\n' "${color}" "$*" "${COLOR_RESET}"
 }
 
+count_lines() {
+  local file_path="$1"
+  if [[ -f "${file_path}" ]]; then
+    wc -l < "${file_path}" | tr -d ' '
+  else
+    printf '0\n'
+  fi
+}
+
+print_realdebrid_progress() {
+  local total="$1"
+  local skipped="$2"
+  local pending="$3"
+  local success_file="$4"
+  local error_file="$5"
+  local timeout_file="$6"
+  local success_count error_count timeout_count done_count
+
+  success_count="$(count_lines "${success_file}")"
+  error_count="$(count_lines "${error_file}")"
+  timeout_count="$(count_lines "${timeout_file}")"
+  done_count="$((success_count + error_count))"
+
+  printf '\r[PROGRESS] Total: %s | Skipped: %s | Pending: %s | Done: %s | OK: %s | Errors: %s | Timeouts: %s' \
+    "${total}" "${skipped}" "${pending}" "${done_count}" "${success_count}" "${error_count}" "${timeout_count}"
+}
+
+terminate_child_processes() {
+  local parent_pid="$1"
+  local child_pids=""
+
+  [[ -n "${parent_pid}" ]] || return 0
+
+  if command -v pgrep >/dev/null 2>&1; then
+    child_pids="$(pgrep -P "${parent_pid}" 2>/dev/null || true)"
+  else
+    child_pids="$(ps -o pid= --ppid "${parent_pid}" 2>/dev/null || true)"
+  fi
+
+  if [[ -n "${child_pids}" ]]; then
+    while read -r child_pid; do
+      [[ -n "${child_pid}" ]] || continue
+      terminate_child_processes "${child_pid}"
+      kill -TERM "${child_pid}" 2>/dev/null || true
+    done <<< "${child_pids}"
+  fi
+
+  kill -TERM "${parent_pid}" 2>/dev/null || true
+}
+
+merge_keepalive_state_file() {
+  local state_file="$1"
+  local updates_file="$2"
+  local merged_file
+
+  merged_file="$(mktemp /tmp/xbvr-realdebrid-state.XXXXXX)"
+
+  awk -F '\t' '
+    NF >= 2 && $1 ~ /^[0-9]+$/ {
+      path = substr($0, index($0, $2))
+      if (!(path in latest) || $1 > latest[path]) {
+        latest[path] = $1
+      }
+    }
+    END {
+      for (path in latest) {
+        printf "%s\t%s\n", latest[path], path
+      }
+    }
+  ' "${state_file}" "${updates_file}" > "${merged_file}"
+
+  mv "${merged_file}" "${state_file}"
+}
+
 write_header() {
   clear 2>/dev/null || true
   write_line "${COLOR_CYAN}" "================================================="
@@ -131,6 +205,12 @@ initialize_directories() {
 
 find_rclone_plugin() {
   docker plugin ls --format '{{.Name}}' 2>/dev/null | grep -i 'rclone' || true
+}
+
+is_xbvr_running() {
+  local state
+  state="$(docker inspect -f '{{.State.Running}}' xbvr 2>/dev/null || true)"
+  [[ "${state}" == "true" ]]
 }
 
 install_rclone_plugin() {
@@ -564,7 +644,7 @@ invoke_cleanup() {
   pause_for_user
 }
 
-invoke_full_setup() {
+run_full_setup() {
   write_line "${COLOR_CYAN}" "Starting full setup (steps 1 through 3)..."
   printf '\n'
 
@@ -574,8 +654,7 @@ invoke_full_setup() {
   printf '\n'
 
   confirm_docker_running || {
-    pause_for_user
-    return
+    return 1
   }
 
   write_line "${COLOR_YELLOW}" "[Step 2/3] Installing rclone_RD plugin..."
@@ -594,8 +673,7 @@ invoke_full_setup() {
     else
       write_line "${COLOR_RED}" "ERROR: Plugin installation failed."
       write_line "${COLOR_DARKGRAY}" "  If it still fails, confirm FUSE/FUSE3 is installed on the host."
-      pause_for_user
-      return
+      return 1
     fi
   fi
   printf '\n'
@@ -603,8 +681,7 @@ invoke_full_setup() {
   write_line "${COLOR_YELLOW}" "[Step 3/3] Starting stack (volumes will be created by docker compose)..."
   if [[ ! -f "${COMPOSE_FILE}" ]]; then
     write_line "${COLOR_RED}" "ERROR: docker-compose.yml not found at ${COMPOSE_FILE}"
-    pause_for_user
-    return
+    return 1
   fi
 
   (
@@ -626,6 +703,330 @@ invoke_full_setup() {
     open_browser
   else
     write_line "${COLOR_RED}" "ERROR: Failed to start stack or XBVR did not become healthy."
+    return 1
+  fi
+}
+
+invoke_full_setup() {
+  if ! run_full_setup; then
+    pause_for_user
+    return
+  fi
+
+  pause_for_user
+}
+
+run_realdebrid_keepalive() {
+  local container_name="xbvr"
+  local ffprobe_path="/root/.config/xbvr/bin/ffprobe"
+  local media_root="/videos/realdebrid"
+  local find_args=(-type f \( -iname '*.mp4' -o -iname '*.MP4' \))
+  local trace_enabled="false"
+  local run_all="false"
+  local parallelism=10
+  local temp_dir list_file filtered_list_file success_file error_file timeout_file
+  local success_update_file lock_file state_file state_file_container
+  local total_files=0 filtered_files=0 skipped_count=0 xargs_status=0 progress_pid="" xargs_pid=""
+  local success_count=0 error_count=0 timeout_count=0 done_count=0
+  local started_at finished_at elapsed_seconds cutoff_timestamp current_timestamp
+  local keepalive_cancelled="false"
+  local -A last_success_by_file=()
+
+  stop_keepalive_processes() {
+    if [[ -n "${progress_pid}" ]]; then
+      kill "${progress_pid}" 2>/dev/null || true
+      wait "${progress_pid}" 2>/dev/null || true
+      progress_pid=""
+    fi
+
+    if [[ -n "${xargs_pid}" ]]; then
+      terminate_child_processes "${xargs_pid}"
+      wait "${xargs_pid}" 2>/dev/null || true
+      xargs_pid=""
+    fi
+  }
+
+  handle_keepalive_interrupt() {
+    keepalive_cancelled="true"
+    stop_keepalive_processes
+  }
+
+  while [[ $# -gt 0 ]]; do
+    case "${1^^}" in
+      -T|--TRACE)
+        trace_enabled="true"
+        ;;
+      -P|--PARALLEL)
+        if [[ $# -lt 2 ]]; then
+          write_line "${COLOR_RED}" "ERROR: Missing value for ${1}."
+          write_line "${COLOR_DARKGRAY}" "  Example: A -P 10 -T"
+          pause_for_user
+          return
+        fi
+        if [[ ! "${2}" =~ ^[1-9][0-9]*$ ]]; then
+          write_line "${COLOR_RED}" "ERROR: Parallelism must be a positive integer. Received: ${2}"
+          pause_for_user
+          return
+        fi
+        parallelism="${2}"
+        shift
+        ;;
+      -ALL|--ALL)
+        run_all="true"
+        ;;
+      *)
+        write_line "${COLOR_RED}" "ERROR: Unsupported argument for option A: ${1}"
+        write_line "${COLOR_DARKGRAY}" "  Use 'A', 'A -T', 'A -P 10', or 'A -ALL'."
+        pause_for_user
+        return
+        ;;
+    esac
+    shift
+  done
+
+  confirm_docker_running || {
+    pause_for_user
+    return
+  }
+
+  if ! command -v timeout >/dev/null 2>&1; then
+    write_line "${COLOR_RED}" "ERROR: 'timeout' is required on the host to enforce the 15s ffprobe limit."
+    pause_for_user
+    return
+  fi
+
+  if ! is_xbvr_running; then
+    write_line "${COLOR_YELLOW}" "XBVR is not running. Starting the full setup flow first..."
+    printf '\n'
+    if ! run_full_setup; then
+      write_line "${COLOR_RED}" "ERROR: Could not prepare XBVR for the Real-Debrid keepalive process."
+      pause_for_user
+      return
+    fi
+    printf '\n'
+  elif ! wait_for_xbvr_healthy; then
+    write_line "${COLOR_RED}" "ERROR: XBVR is running but did not become healthy in time."
+    pause_for_user
+    return
+  fi
+
+  if ! docker exec "${container_name}" test -x "${ffprobe_path}"; then
+    write_line "${COLOR_RED}" "ERROR: ffprobe not found at ${ffprobe_path} inside ${container_name}."
+    pause_for_user
+    return
+  fi
+
+  if ! docker exec "${container_name}" find "${media_root}" "${find_args[@]}" -print -quit | grep -q .; then
+    write_line "${COLOR_YELLOW}" "No .mp4 files found under ${media_root}."
+    pause_for_user
+    return
+  fi
+
+  write_line "${COLOR_CYAN}" "Starting Real-Debrid keepalive scan..."
+  write_line "${COLOR_DARKGRAY}" "  Container: ${container_name}"
+  write_line "${COLOR_DARKGRAY}" "  Root: ${media_root}"
+  write_line "${COLOR_DARKGRAY}" "  Parallelism: ${parallelism} files"
+  write_line "${COLOR_DARKGRAY}" "  Per-file timeout: 15s"
+  write_line "${COLOR_DARKGRAY}" "  Trace mode: ${trace_enabled}"
+  write_line "${COLOR_DARKGRAY}" "  Run all files: ${run_all}"
+  printf '\n'
+
+  temp_dir="$(mktemp -d /tmp/xbvr-realdebrid-keepalive.XXXXXX)"
+  list_file="${temp_dir}/files.list"
+  filtered_list_file="${temp_dir}/filtered-files.list"
+  success_file="${temp_dir}/success.log"
+  error_file="${temp_dir}/error.log"
+  timeout_file="${temp_dir}/timeout.log"
+  success_update_file="${temp_dir}/success-updates.log"
+  lock_file="${temp_dir}/state.lock"
+  state_file="${XBVR_DATA_DIR}/realdebrid-keepalive-state.tsv"
+  state_file_container="/root/.config/xbvr/realdebrid-keepalive-state.tsv"
+  : > "${filtered_list_file}"
+  : > "${success_file}"
+  : > "${error_file}"
+  : > "${timeout_file}"
+  : > "${success_update_file}"
+  touch "${lock_file}"
+  touch "${state_file}"
+
+  if ! docker exec "${container_name}" find "${media_root}" "${find_args[@]}" -print0 > "${list_file}"; then
+    write_line "${COLOR_RED}" "ERROR: Failed to list .mp4 files under ${media_root}."
+    pause_for_user
+    return
+  fi
+
+  total_files="$(awk 'BEGIN { RS = "\0" } END { print NR }' "${list_file}")"
+  current_timestamp="$(date +%s)"
+  cutoff_timestamp="$((current_timestamp - 5 * 24 * 60 * 60))"
+
+  while IFS=$'\t' read -r recorded_timestamp recorded_path; do
+    [[ -n "${recorded_timestamp}" && -n "${recorded_path}" ]] || continue
+    [[ "${recorded_timestamp}" =~ ^[0-9]+$ ]] || continue
+    if [[ -z "${last_success_by_file["${recorded_path}"]+x}" || "${recorded_timestamp}" -gt "${last_success_by_file["${recorded_path}"]}" ]]; then
+      last_success_by_file["${recorded_path}"]="${recorded_timestamp}"
+    fi
+  done < "${state_file}"
+
+  while IFS= read -r -d '' file_path; do
+    if [[ "${run_all}" != "true" && -n "${last_success_by_file["${file_path}"]+x}" && "${last_success_by_file["${file_path}"]}" -ge "${cutoff_timestamp}" ]]; then
+      skipped_count="$((skipped_count + 1))"
+      continue
+    fi
+    printf '%s\0' "${file_path}" >> "${filtered_list_file}"
+  done < "${list_file}"
+
+  filtered_files="$(awk 'BEGIN { RS = "\0" } END { print NR }' "${filtered_list_file}")"
+  started_at="$(date +%s)"
+
+  trap 'handle_keepalive_interrupt' INT TERM
+
+  write_line "${COLOR_DARKGRAY}" "  State file: ${state_file_container}"
+  write_line "${COLOR_DARKGRAY}" "  Skip window: last 5 days"
+  write_line "${COLOR_DARKGRAY}" "  Eligible files this run: ${filtered_files}"
+  write_line "${COLOR_DARKGRAY}" "  Skipped files this run: ${skipped_count}"
+  printf '\n'
+
+  if [[ "${filtered_files}" -eq 0 ]]; then
+    print_realdebrid_progress "${total_files}" "${skipped_count}" "${filtered_files}" "${success_file}" "${error_file}" "${timeout_file}"
+    printf '\n\n'
+    write_line "${COLOR_CYAN}" "Execution summary"
+    write_line "${COLOR_DARKGRAY}" "  Total files: ${total_files}"
+    write_line "${COLOR_DARKGRAY}" "  Eligible:    0"
+    write_line "${COLOR_DARKGRAY}" "  Skipped:     ${skipped_count}"
+    write_line "${COLOR_GREEN}" "  Successful:  0"
+    write_line "${COLOR_DARKGRAY}" "  Errors:      0"
+    write_line "${COLOR_DARKGRAY}" "  Timeouts:    0"
+    write_line "${COLOR_DARKGRAY}" "  Duration:    0s"
+    write_line "${COLOR_GREEN}" "OK: No files needed processing."
+    if [[ -n "${temp_dir}" && -d "${temp_dir}" ]]; then
+      rm -rf "${temp_dir}"
+    fi
+    trap - INT TERM
+    pause_for_user
+    return
+  fi
+
+  (
+    current_done=0
+    while true; do
+      print_realdebrid_progress "${total_files}" "${skipped_count}" "${filtered_files}" "${success_file}" "${error_file}" "${timeout_file}"
+      current_done="$(( $(count_lines "${success_file}") + $(count_lines "${error_file}") ))"
+      if [[ "${current_done}" -ge "${filtered_files}" ]]; then
+        break
+      fi
+      sleep 0.2
+    done
+  ) &
+  progress_pid=$!
+
+  xargs -0 -r -n1 -P"${parallelism}" bash -c '
+    container_name="$1"
+    ffprobe_path="$2"
+    success_file="$3"
+    error_file="$4"
+    timeout_file="$5"
+    trace_enabled="$6"
+    success_update_file="$7"
+    lock_file="$8"
+    file_path="$9"
+    ffprobe_args=(-v error -show_entries format=filename,format_name,duration,size -of default=noprint_wrappers=1 "$file_path")
+
+    if [[ "$trace_enabled" == "true" ]]; then
+      printf "\n[ACCESS] %s\n" "$file_path"
+    fi
+
+    ffprobe_output="$(timeout 15s docker exec "$container_name" "$ffprobe_path" "${ffprobe_args[@]}" 2>&1)"
+    status=$?
+
+    case "$status" in
+      0)
+        printf "%s\n" "$file_path" >> "$success_file"
+        update_record="$(date +%s)\t${file_path}\n"
+        if command -v flock >/dev/null 2>&1; then
+          {
+            flock -x 9
+            printf "%b" "$update_record" >> "$success_update_file"
+          } 9>>"$lock_file"
+        else
+          printf "%b" "$update_record" >> "$success_update_file"
+        fi
+        if [[ "$trace_enabled" == "true" ]]; then
+          printf "[OK] %s\n%s\n" "$file_path" "$ffprobe_output"
+        fi
+        exit 0
+        ;;
+      124)
+        printf "%s\n" "$file_path" >> "$timeout_file"
+        printf "%s\n" "$file_path" >> "$error_file"
+        printf "\n[ERROR] timeout after 15s: %s\n" "$file_path" >&2
+        exit 124
+        ;;
+      *)
+        printf "%s\n" "$file_path" >> "$error_file"
+        if [[ -n "$ffprobe_output" ]]; then
+          printf "\n[ERROR] %s :: %s\n" "$file_path" "$ffprobe_output" >&2
+        else
+          printf "\n[ERROR] ffprobe exited with status %s: %s\n" "$status" "$file_path" >&2
+        fi
+        exit "$status"
+        ;;
+      esac
+  ' _ "${container_name}" "${ffprobe_path}" "${success_file}" "${error_file}" "${timeout_file}" "${trace_enabled}" "${success_update_file}" "${lock_file}" < "${filtered_list_file}" &
+  xargs_pid=$!
+  if [[ -n "${xargs_pid}" ]]; then
+    wait "${xargs_pid}"
+    xargs_status=$?
+    xargs_pid=""
+  fi
+
+  if [[ -n "${progress_pid}" ]]; then
+    wait "${progress_pid}" 2>/dev/null || true
+    progress_pid=""
+  fi
+
+  trap - INT TERM
+
+  print_realdebrid_progress "${total_files}" "${skipped_count}" "${filtered_files}" "${success_file}" "${error_file}" "${timeout_file}"
+  printf '\n'
+
+  finished_at="$(date +%s)"
+  elapsed_seconds="$((finished_at - started_at))"
+  success_count="$(count_lines "${success_file}")"
+  error_count="$(count_lines "${error_file}")"
+  timeout_count="$(count_lines "${timeout_file}")"
+  done_count="$((success_count + error_count))"
+
+  printf '\n'
+  write_line "${COLOR_CYAN}" "Execution summary"
+  write_line "${COLOR_DARKGRAY}" "  Total files: ${total_files}"
+  write_line "${COLOR_DARKGRAY}" "  Eligible:    ${filtered_files}"
+  write_line "${COLOR_DARKGRAY}" "  Skipped:     ${skipped_count}"
+  write_line "${COLOR_DARKGRAY}" "  Completed:   ${done_count}"
+  write_line "${COLOR_GREEN}" "  Successful:  ${success_count}"
+  if [[ "${error_count}" -gt 0 ]]; then
+    write_line "${COLOR_RED}" "  Errors:      ${error_count}"
+  else
+    write_line "${COLOR_DARKGRAY}" "  Errors:      0"
+  fi
+  if [[ "${timeout_count}" -gt 0 ]]; then
+    write_line "${COLOR_RED}" "  Timeouts:    ${timeout_count}"
+  else
+    write_line "${COLOR_DARKGRAY}" "  Timeouts:    0"
+  fi
+  write_line "${COLOR_DARKGRAY}" "  Duration:    ${elapsed_seconds}s"
+
+  if [[ "${keepalive_cancelled}" == "true" || "${xargs_status}" -eq 130 ]]; then
+    write_line "${COLOR_YELLOW}" "WARNING: Real-Debrid keepalive scan was cancelled."
+  elif [[ "${xargs_status}" -eq 0 && "${error_count}" -eq 0 ]]; then
+    write_line "${COLOR_GREEN}" "OK: Real-Debrid keepalive scan completed successfully."
+  else
+    write_line "${COLOR_RED}" "ERROR: Real-Debrid keepalive scan finished with failures."
+  fi
+
+  merge_keepalive_state_file "${state_file}" "${success_update_file}"
+  stop_keepalive_processes
+  if [[ -n "${temp_dir}" && -d "${temp_dir}" ]]; then
+    rm -rf "${temp_dir}"
   fi
 
   pause_for_user
@@ -643,6 +1044,7 @@ while true; do
   printf '%s\n' "  [3] Start stack  (volumes managed by docker compose)"
   printf '%s\n' "  [4] Stop stack + remove volumes"
   printf '%s\n' "  [5] Stop stack + remove volumes + clear rclone cache"
+  printf '%s\n' "  [A] Access all Real-Debrid files with ffprobe  (use '-T', '-P N', or '-ALL')"
   printf '%s\n' "  [8] View live logs"
   printf '%s\n' "  [9] Restart menu  (full stack or XBVR only)"
   printf '%s\n' "  [O] Open XBVR in Brave incognito"
@@ -655,14 +1057,17 @@ while true; do
   printf '\n'
 
   read -r -p "Choose an option: " choice
+  read -r -a choice_parts <<< "${choice}"
+  menu_action="${choice_parts[0]:-}"
 
-  case "${choice^^}" in
+  case "${menu_action^^}" in
     0) invoke_full_setup ;;
     1) initialize_directories ;;
     2) install_rclone_plugin ;;
     3) start_stack ;;
     4) stop_stack ;;
     5) stop_stack_and_clear_cache ;;
+    A) run_realdebrid_keepalive "${choice_parts[@]:1}" ;;
     6) invoke_partial_cleanup ;;
     7) invoke_cleanup ;;
     8) show_logs ;;
