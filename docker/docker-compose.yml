@@ -100,7 +100,7 @@ networks:
 # "realdebrid" is managed by docker-compose with the rclone driver.
 # It will be created when the stack starts and removed when stopped with "-v" flag.
 # Deploy sequence: 
-#   1. Run the PowerShell helper → option 2 to install the rclone plugin
+#   1. Run the Linux helper -> option 2 to install the rclone plugin
 #   2. Run option 3 to start the stack (compose will create the volume)
 # ---------------------------------------------------------------
 volumes:

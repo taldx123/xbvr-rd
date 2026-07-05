@@ -6,11 +6,11 @@ This is a Docker-based deployment configuration repository for XBVR. The applica
 
 ```
 .
-├── docker/           # Docker Compose configuration
+├── docker/           # Docker Compose configuration, env file, and launcher
+│   ├── .env
 │   ├── docker-compose.yml
-│   └── mariadb/my.cnf
-├── linux/            # Linux launcher and env file
-├── windows/          # Windows launcher and env files
+│   ├── mariadb/my.cnf
+│   └── xbvr-manager.sh
 ├── data/             # Persistent data (gitignored)
 │   ├── mariadb/
 │   ├── xbvr/
@@ -27,10 +27,7 @@ This is a Docker-based deployment configuration repository for XBVR. The applica
 docker compose -f docker/docker-compose.yml config --quiet
 
 # Validate environment file (check required variables exist)
-# Linux
-grep -E '^[A-Z_]+=' docker/../linux/.env | cut -d= -f1
-# Windows
-type windows\.env | findstr /R "^[A-Z_]*="
+grep -E '^[A-Z_]+=' docker/.env | cut -d= -f1
 
 # Lint Dockerfiles (install hadolint first)
 hadolint docker/docker-compose.yml
@@ -40,32 +37,17 @@ hadolint docker/docker-compose.yml
 
 ```bash
 # Always pass the correct env file from docker/ directory:
-
-# Linux
-docker compose --env-file ../linux/.env up -d
-docker compose --env-file ../linux/.env logs -f
-docker compose --env-file ../linux/.env down -v
-
-# Windows
-docker compose --env-file ../windows/.env up -d
-docker compose --env-file ../windows/.env logs -f
-docker compose --env-file ../windows/.env down -v
+docker compose --env-file .env up -d
+docker compose --env-file .env logs -f
+docker compose --env-file .env down -v
 ```
-
-### Linux Launcher
 
 ```bash
-chmod +x linux/xbvr-manager.sh
-./linux/xbvr-manager.sh
+chmod +x docker/xbvr-manager.sh
+./docker/xbvr-manager.sh
 ```
 
-### Windows Launcher
-
-```cmd
-windows\XBVR-Manager.bat
-```
-
-### Menu Options (both launchers)
+### Menu Options
 
 | Option | Action |
 |--------|--------|
@@ -160,7 +142,7 @@ JAV_PATH='/media/xxx/Local Disk1/JAV'
 ### Documentation
 
 - All shell scripts should have usage/help text
-- README should explain OS-specific differences
+- README should explain Linux-specific setup expectations
 - Comments should explain *why*, not *what*
 
 ## Common Issues & Solutions
@@ -182,6 +164,6 @@ Ensure `fuse` or `fuse3` is installed on the Linux host.
 
 ## Notes
 
-- The repo-root `.env` is legacy; always use OS-specific env files
+- The repo-root `.env` is legacy; always use `docker/.env`
 - This repository is configuration-only; application code is in the XBVR repository
 - Real-Debrid mount requires the `rclone` Docker plugin installed on the host

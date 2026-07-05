@@ -50,6 +50,7 @@ write_header() {
   write_line "${COLOR_CYAN}" "              XBVR Stack Manager                 "
   write_line "${COLOR_CYAN}" "================================================="
   write_line "${COLOR_DARKGRAY}" " Project root: ${PROJECT_ROOT}"
+  write_line "${COLOR_DARKGRAY}" " Config file:  ${ENV_FILE}"
   printf '\n'
 }
 

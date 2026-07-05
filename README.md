@@ -7,15 +7,10 @@ Docker-based XBVR deployment with MariaDB, XBVR application, and Real-Debrid mou
 ```
 .
 ├── docker/
+│   ├── .env
 │   ├── docker-compose.yml
-│   └── mariadb/my.cnf
-├── linux/
-│   ├── .env
+│   ├── mariadb/my.cnf
 │   └── xbvr-manager.sh
-├── windows/
-│   ├── .env
-│   ├── XBVR-Manager.bat
-│   └── xbvr-manager.ps1
 └── data/
     ├── mariadb/
     ├── xbvr/
@@ -24,11 +19,9 @@ Docker-based XBVR deployment with MariaDB, XBVR application, and Real-Debrid mou
         └── config/
 ```
 
-The same `docker/docker-compose.yml` is shared by both operating systems. Each OS has its own launcher and `.env` file.
+This repository now keeps the launcher and environment file in `docker/`.
 
 ## Requirements
-
-### All Platforms
 
 - Docker with `docker compose` plugin
 - Real-Debrid API key
@@ -39,14 +32,9 @@ The same `docker/docker-compose.yml` is shared by both operating systems. Each O
 - `bash`
 - `fuse` or `fuse3` (for rclone plugin)
 
-### Windows
-
-- Docker Desktop
-- PowerShell 5.1+
-
 ## Environment Variables
 
-Each platform has its own `.env` file (`linux/.env` or `windows/.env`). Copy the template below and adjust values for your setup.
+Use `docker/.env` and adjust the values for your setup.
 
 ```env
 # =============================================================
@@ -75,9 +63,6 @@ TZ=America/Sao_Paulo
 TS_PATH='/media/xxx/Local Disk1/TS'
 JAV_PATH='/media/xxx/Local Disk1/JAV'
 
-# Windows example:
-# TS_PATH='D:\TS'
-# JAV_PATH='D:\JAV'
 ```
 
 ### Variable Reference
@@ -93,17 +78,14 @@ JAV_PATH='/media/xxx/Local Disk1/JAV'
 | `CONCURRENT_SCRAPERS` | Number of concurrent scrapers | `6` |
 | `MARIADB_PORT` | Host port for MariaDB | `3306` |
 | `TZ` | Timezone | `America/Sao_Paulo` |
-| `TS_PATH` | Path to TS media library | OS-specific |
-| `JAV_PATH` | Path to JAV media library | OS-specific |
+| `TS_PATH` | Path to TS media library | Linux host path |
+| `JAV_PATH` | Path to JAV media library | Linux host path |
 
 ## Setup
 
 ### 1. Configure Environment
 
-Edit the `.env` file for your platform:
-
-- **Linux:** `linux/.env`
-- **Windows:** `windows/.env`
+Edit `docker/.env`.
 
 At minimum, set:
 - `RD_API_KEY` with your Real-Debrid API key
@@ -112,15 +94,9 @@ At minimum, set:
 
 ### 2. Run the Launcher
 
-**Linux:**
 ```bash
-chmod +x linux/xbvr-manager.sh
-./linux/xbvr-manager.sh
-```
-
-**Windows:**
-```
-windows\XBVR-Manager.bat
+chmod +x docker/xbvr-manager.sh
+./docker/xbvr-manager.sh
 ```
 
 Select option `0` for full setup (creates directories, installs rclone plugin, starts stack).
@@ -146,18 +122,10 @@ XBVR is available at `http://localhost:9999` (default port).
 
 Run from the `docker/` directory:
 
-**Linux:**
 ```bash
-docker compose --env-file ../linux/.env up -d
-docker compose --env-file ../linux/.env logs -f
-docker compose --env-file ../linux/.env down -v
-```
-
-**Windows:**
-```powershell
-docker compose --env-file ../windows/.env up -d
-docker compose --env-file ../windows/.env logs -f
-docker compose --env-file ../windows/.env down -v
+docker compose --env-file .env up -d
+docker compose --env-file .env logs -f
+docker compose --env-file .env down -v
 ```
 
 ## Persistent Data
@@ -207,6 +175,6 @@ Ensure `fuse` or `fuse3` is installed on the Linux host.
 
 ## Notes
 
-- The repo-root `.env` is legacy and not used by current launchers
-- Always pass the correct env file when using `docker compose` manually
-- Media paths are OS-specific and defined in each platform's `.env` file
+- The repo-root `.env` is legacy and not used by the current launcher
+- Always pass `docker/.env` when using `docker compose` manually
+- Media paths are Linux host paths defined in `docker/.env`
