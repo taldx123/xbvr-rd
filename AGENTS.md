@@ -56,9 +56,15 @@ chmod +x docker/xbvr-manager.sh
 | 2 | Install rclone_RD Docker plugin |
 | 3 | Start stack |
 | 4 | Stop stack and remove volumes |
+| 5 | Stop stack, remove volumes, and clear rclone cache |
 | 6 | Partial cleanup (containers, volumes, rclone plugin) |
 | 7 | Full cleanup (keeps rclone config on Linux) |
 | 8 | View live logs |
+| 9 | Restart menu |
+| A | Real-Debrid keepalive scan |
+| C | Check files table for missing physical files |
+| O | Open XBVR in incognito browser |
+| Q | Quit |
 
 ## Code Style Guidelines
 

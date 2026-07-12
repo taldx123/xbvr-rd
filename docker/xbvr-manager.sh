@@ -1032,6 +1032,81 @@ run_realdebrid_keepalive() {
   pause_for_user
 }
 
+check_missing_files() {
+  confirm_docker_running || {
+    pause_for_user
+    return
+  }
+
+  if ! is_xbvr_running; then
+    write_line "${COLOR_RED}" "ERROR: XBVR container is not running."
+    pause_for_user
+    return
+  fi
+
+  write_line "${COLOR_CYAN}" "Checking database for missing files in XBVR container..."
+
+  local db_user db_pass db_name temp_file missing_file missing_count=0
+  db_user="$(read_env_value "MARIADB_USER")"
+  db_pass="$(read_env_value "MARIADB_PASSWORD")"
+  db_name="$(read_env_value "MARIADB_DATABASE")"
+
+  if [[ -z "${db_user}" || -z "${db_pass}" || -z "${db_name}" ]]; then
+    write_line "${COLOR_RED}" "ERROR: Database credentials not found in ${ENV_FILE}."
+    pause_for_user
+    return
+  fi
+
+  temp_file="$(mktemp /tmp/xbvr-files.XXXXXX)"
+  missing_file="$(mktemp /tmp/xbvr-missing.XXXXXX)"
+
+  write_line "${COLOR_DARKGRAY}" "  Querying database for file list..."
+  if ! docker exec "xbvr-mariadb" mariadb -u"${db_user}" -p"${db_pass}" "${db_name}" --skip-column-names -e "SELECT id, REPLACE(CONCAT(path, '/', filename), '//', '/') FROM files;" > "${temp_file}"; then
+    write_line "${COLOR_RED}" "ERROR: Failed to query database."
+    rm -f "${temp_file}" "${missing_file}"
+    pause_for_user
+    return
+  fi
+
+  local total
+  total="$(count_lines "${temp_file}")"
+  write_line "${COLOR_DARKGRAY}" "  Found ${total} records in database. Checking file existence..."
+
+  docker exec -i xbvr bash -c '
+    while IFS=$(printf "\t") read -r id path; do
+      if [[ ! -f "$path" ]]; then
+        printf "%s\t%s\n" "$id" "$path"
+      fi
+    done
+  ' < "${temp_file}" > "${missing_file}"
+
+  missing_count="$(count_lines "${missing_file}")"
+
+  if [[ "${missing_count}" -gt 0 ]]; then
+    printf "\n"
+    write_line "${COLOR_RED}" "Found ${missing_count} missing files:"
+    while IFS=$'\t' read -r id path; do
+      write_line "${COLOR_YELLOW}" "  ID: ${id} | Path: ${path}"
+    done < "${missing_file}"
+  else
+    printf "\n"
+    write_line "${COLOR_GREEN}" "OK: All ${total} database records have matching files."
+  fi
+
+  printf "\n"
+  write_line "${COLOR_CYAN}" "Execution summary"
+  write_line "${COLOR_DARKGRAY}" "  Total records: ${total}"
+  if [[ "${missing_count}" -gt 0 ]]; then
+    write_line "${COLOR_RED}" "  Missing files: ${missing_count}"
+  else
+    write_line "${COLOR_GREEN}" "  Missing files: 0"
+  fi
+
+  rm -f "${temp_file}" "${missing_file}"
+  pause_for_user
+}
+
+
 while true; do
   write_header
 
@@ -1045,6 +1120,7 @@ while true; do
   printf '%s\n' "  [4] Stop stack + remove volumes"
   printf '%s\n' "  [5] Stop stack + remove volumes + clear rclone cache"
   printf '%s\n' "  [A] Access all Real-Debrid files with ffprobe  (use '-T', '-P N', or '-ALL')"
+  printf '%s\n' "  [C] Check files table for missing physical files"
   printf '%s\n' "  [8] View live logs"
   printf '%s\n' "  [9] Restart menu  (full stack or XBVR only)"
   printf '%s\n' "  [O] Open XBVR in Brave incognito"
@@ -1068,6 +1144,7 @@ while true; do
     4) stop_stack ;;
     5) stop_stack_and_clear_cache ;;
     A) run_realdebrid_keepalive "${choice_parts[@]:1}" ;;
+    C) check_missing_files ;;
     6) invoke_partial_cleanup ;;
     7) invoke_cleanup ;;
     8) show_logs ;;

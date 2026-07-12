@@ -71,7 +71,10 @@ services:
         target: /videos/JAV                       # JAV
       - type: bind
         source: /mnt/localdisk/PT
-        target: /videos/PT                       # PT
+        target: /videos/PT                        # PT
+      - type: bind
+        source: ${OTHER_PATH}
+        target: /videos/OTHER                     # OTHER
     restart: unless-stopped
     networks:
       - xbvr-net
