@@ -1106,6 +1106,33 @@ check_missing_files() {
   pause_for_user
 }
 
+download_cuepoints() {
+  confirm_docker_running || {
+    pause_for_user
+    return
+  }
+
+  write_line "${COLOR_CYAN}" "Starting cuepoints download..."
+
+  local db_user db_pass db_name
+  db_user="$(read_env_value "MARIADB_USER")"
+  db_pass="$(read_env_value "MARIADB_PASSWORD")"
+  db_name="$(read_env_value "MARIADB_DATABASE")"
+
+  if [[ -z "${db_user}" || -z "${db_pass}" || -z "${db_name}" ]]; then
+    write_line "${COLOR_RED}" "ERROR: Database credentials not found in ${ENV_FILE}."
+    pause_for_user
+    return
+  fi
+
+  if command -v python3 >/dev/null 2>&1; then
+    python3 "${DOCKER_DIR}/download_cuepoints.py" "${db_user}" "${db_pass}" "${db_name}"
+  else
+    write_line "${COLOR_RED}" "ERROR: python3 is not installed on the host. Please install python3 to use this feature."
+  fi
+
+  pause_for_user
+}
 
 while true; do
   write_header
@@ -1121,6 +1148,7 @@ while true; do
   printf '%s\n' "  [5] Stop stack + remove volumes + clear rclone cache"
   printf '%s\n' "  [A] Access all Real-Debrid files with ffprobe  (use '-T', '-P N', or '-ALL')"
   printf '%s\n' "  [C] Check files table for missing physical files"
+  printf '%s\n' "  [D] Download cuepoints from timestamp.trade"
   printf '%s\n' "  [8] View live logs"
   printf '%s\n' "  [9] Restart menu  (full stack or XBVR only)"
   printf '%s\n' "  [O] Open XBVR in Brave incognito"
@@ -1145,6 +1173,7 @@ while true; do
     5) stop_stack_and_clear_cache ;;
     A) run_realdebrid_keepalive "${choice_parts[@]:1}" ;;
     C) check_missing_files ;;
+    D) download_cuepoints ;;
     6) invoke_partial_cleanup ;;
     7) invoke_cleanup ;;
     8) show_logs ;;

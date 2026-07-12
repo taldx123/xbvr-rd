@@ -117,6 +117,7 @@ Select option `0` for full setup (creates directories, installs rclone plugin, s
 | 9 | Open the restart submenu for full stack or XBVR-only restart |
 | `A` | Run the Real-Debrid keepalive scan on `.mp4` files that have not completed successfully in the last 5 days |
 | `C` | Check files table for missing physical files in the XBVR container |
+| `D` | Download and merge cuepoints from timestamp.trade based on database matching |
 | `A -T` | Run the same keepalive scan with per-file trace output |
 | `A -P 10` | Run the keepalive scan with custom parallelism |
 | `A -P 10 -T` | Run the keepalive scan with both custom parallelism and trace output |
