@@ -95,7 +95,7 @@ def main():
         "docker", "exec", "xbvr-mariadb", "mariadb", 
         f"-u{db_user}", f"-p{db_pass}", db_name, 
         "--skip-column-names", "-e", 
-        "SELECT DISTINCT studio, site FROM scenes WHERE (studio IS NOT NULL AND studio != '') OR (site IS NOT NULL AND site != '');"
+        "SELECT DISTINCT s.studio, s.site FROM scenes s LEFT JOIN scene_cuepoints c ON c.scene_id = s.id WHERE c.id IS NULL AND ((s.studio IS NOT NULL AND s.studio != '') OR (s.site IS NOT NULL AND s.site != ''));"
     ]
     
     print("Querying database for studio and site combinations...")

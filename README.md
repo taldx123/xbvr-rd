@@ -122,10 +122,13 @@ Select option `0` for full setup (creates directories, installs rclone plugin, s
 | `A -P 10` | Run the keepalive scan with custom parallelism |
 | `A -P 10 -T` | Run the keepalive scan with both custom parallelism and trace output |
 | `A -ALL` | Bypass the 5-day filter and run the keepalive scan for all `.mp4` files |
+| `S` | Download and merge cuepoints from SexLikeReal based on database matching |
 | `O` | Open XBVR in a Brave/Chromium incognito window |
 | `Q` | Quit the helper |
 
 The keepalive scan stores successful runs in `/root/.config/xbvr/realdebrid-keepalive-state.tsv`, which is persisted through the XBVR config volume. By default, files with a successful `ffprobe` in the last 5 days are skipped. The progress and final summary show total files, skipped files, eligible files, completed files, successes, errors, and timeouts. Without `-T`, it keeps the output quiet aside from progress, errors, and the final summary. `-P` changes the parallel worker count, the default remains `10`, and `-ALL` bypasses the 5-day skip filter.
+
+The SexLikeReal cuepoints tool (`S`) stores successfully resolved studio IDs in `/root/.config/xbvr/slr-studio-cache.tsv` to avoid duplicate API calls. Cache entries are valid for 5 days. Both the keepalive scan and the SLR cuepoints tool use multi-threaded batch fetching with a default maximum of 10 concurrent parallel workers.
 
 ## Access
 

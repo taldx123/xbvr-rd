@@ -64,6 +64,7 @@ chmod +x docker/xbvr-manager.sh
 | A | Real-Debrid keepalive scan |
 | C | Check files table for missing physical files |
 | D | Download cuepoints from timestamp.trade |
+| S | Download cuepoints from SexLikeReal |
 | O | Open XBVR in incognito browser |
 | Q | Quit |
 
