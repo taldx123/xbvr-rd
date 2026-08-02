@@ -1,3 +1,9 @@
 data/
+backup/
 **/*.env*
 **/__pycache__
+
+.agent/
+.agents/
+.opencode/
+_bmad/

@@ -61,6 +61,7 @@ chmod +x docker/xbvr-manager.sh
 | 7 | Full cleanup (keeps rclone config on Linux) |
 | 8 | View live logs |
 | 9 | Restart menu |
+| B | Backup Menu (Database / Full) |
 | A | Real-Debrid keepalive scan |
 | C | Check files table for missing physical files |
 | D | Download cuepoints from timestamp.trade |

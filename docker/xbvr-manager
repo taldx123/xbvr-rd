@@ -12,12 +12,14 @@ XBVR_DATA_DIR="${PROJECT_ROOT}/data/xbvr"
 RCLONE_DIR="${PROJECT_ROOT}/data/rclone"
 RCLONE_CONFIG_DIR="${RCLONE_DIR}/config"
 RCLONE_CACHE_DIR="${RCLONE_DIR}/cache"
+BACKUP_DIR="${PROJECT_ROOT}/backup"
 
 DIRS=(
   "${MARIADB_DATA_DIR}"
   "${XBVR_DATA_DIR}"
   "${RCLONE_CONFIG_DIR}"
   "${RCLONE_CACHE_DIR}"
+  "${BACKUP_DIR}"
 )
 
 if [[ -t 1 ]]; then
@@ -1157,6 +1159,84 @@ download_slr_cuepoints() {
   pause_for_user
 }
 
+invoke_backup() {
+  local target="$1"
+  confirm_docker_running || {
+    pause_for_user
+    return
+  }
+
+  local was_running="false"
+  if is_xbvr_running; then
+    was_running="true"
+    write_line "${COLOR_YELLOW}" "Stopping stack to ensure backup consistency..."
+    (
+      cd "${DOCKER_DIR}" || exit 1
+      docker compose --env-file "${ENV_FILE}" down -v
+    ) >/dev/null 2>&1
+  fi
+
+  local timestamp
+  timestamp="$(date +%Y%m%d_%H%M%S)"
+  local current_backup_dir="${BACKUP_DIR}/${timestamp}"
+
+  write_line "${COLOR_CYAN}" "Creating backup directory: ${current_backup_dir}"
+  mkdir -p "${current_backup_dir}"
+
+  if [[ "${target}" == "all" ]]; then
+    write_line "${COLOR_YELLOW}" "Backing up MariaDB and XBVR data..."
+    cp -a "${MARIADB_DATA_DIR}" "${current_backup_dir}/mariadb"
+    cp -a "${XBVR_DATA_DIR}" "${current_backup_dir}/xbvr"
+  elif [[ "${target}" == "db" ]]; then
+    write_line "${COLOR_YELLOW}" "Backing up MariaDB data only..."
+    cp -a "${MARIADB_DATA_DIR}" "${current_backup_dir}/mariadb"
+  fi
+
+  write_line "${COLOR_GREEN}" "OK: Backup completed at ${current_backup_dir}"
+
+  if [[ "${was_running}" == "true" ]]; then
+    write_line "${COLOR_YELLOW}" "Restarting stack..."
+    (
+      cd "${DOCKER_DIR}" || exit 1
+      docker compose --env-file "${ENV_FILE}" up -d --wait --wait-timeout 180
+    ) >/dev/null 2>&1
+    write_line "${COLOR_GREEN}" "OK: Stack restarted."
+  fi
+
+  pause_for_user
+}
+
+backup_menu() {
+  while true; do
+    write_header
+    write_line "${COLOR_DARKCYAN}" "  BACKUP MENU"
+    printf '%s\n' "  [1] Backup MariaDB only"
+    printf '%s\n' "  [2] Backup everything (MariaDB + XBVR data)"
+    printf '%s\n' "  [B] Back"
+    printf '\n'
+
+    read -r -p "Choose an option: " backup_choice
+
+    case "${backup_choice^^}" in
+      1)
+        invoke_backup "db"
+        return
+        ;;
+      2)
+        invoke_backup "all"
+        return
+        ;;
+      B)
+        return
+        ;;
+      *)
+        write_line "${COLOR_RED}" "Invalid option. Please try again."
+        sleep 1
+        ;;
+    esac
+  done
+}
+
 while true; do
   write_header
 
@@ -1178,6 +1258,7 @@ while true; do
   printf '%s\n' "  [O] Open XBVR in Brave incognito"
   printf '\n'
   write_line "${COLOR_DARKCYAN}" "  MAINTENANCE"
+  printf '%s\n' "  [B] Backup Menu (Database / Full)"
   printf '%s\n' "  [6] Partial cleanup (remove plugin + clear cache)"
   printf '%s\n' "  [7] Full cleanup (remove everything including app data)"
   printf '\n'
@@ -1203,6 +1284,7 @@ while true; do
     7) invoke_cleanup ;;
     8) show_logs ;;
     9) restart_menu ;;
+    B) backup_menu ;;
     O) open_xbvr_brave_incognito ;;
     Q)
       write_line "${COLOR_CYAN}" "Bye!"
