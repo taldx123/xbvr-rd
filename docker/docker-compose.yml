@@ -40,12 +40,27 @@ services:
       start_period: 30s
 
   # -----------------------------------------------------------
+  # Arp WebDAV Server
+  # -----------------------------------------------------------
+  arp-webdav:
+    build: ./arp-webdav
+    container_name: arp-webdav
+    ports:
+      - "172.17.0.1:8080:8080"
+    volumes:
+      - ~/work/projects/arp/scraped/authenticated_links.json:/app/authenticated_links.json:ro
+    restart: unless-stopped
+    networks:
+      - xbvr-net
+
+  # -----------------------------------------------------------
   # XBVR – main application
   # -----------------------------------------------------------
   xbvr:
     # image: ghcr.io/xbapps/xbvr:latest
     # image: ghcr.io/xbapps/xbvr:0.4.39
-    image: xbvr:latest
+    # image: xbvr:latest
+    image: xbvr:SNAPSHOT
     container_name: xbvr
     depends_on:
       mariadb:
@@ -63,6 +78,7 @@ services:
       - "${XBVR_PORT}:9999"
     volumes:
       - realdebrid:/videos/realdebrid             # Real-Debrid mount via rclone plugin
+      - arp:/videos/arp                     # Arp virtual mount
       - ../data/xbvr:/root/.config/xbvr           # XBVR config & metadata
       - type: bind
         source: ${TS_PATH}
@@ -122,3 +138,15 @@ volumes:
       vfs_cache_max_size: "75G"
       vfs_cache_max_age: "12h"
       # vfs_cache_min_free_space: "20G"
+
+  arp:
+    driver: rclone
+    driver_opts:
+      type: "webdav"
+      webdav-url: "http://172.17.0.1:8080/"
+      allow_other: "true"
+      dir_cache_time: "10s"
+      vfs_cache_mode: "full"
+      vfs_read_ahead: "256M"
+      vfs_cache_max_size: "75G"
+      vfs_cache_max_age: "12h"
