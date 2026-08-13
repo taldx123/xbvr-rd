@@ -232,12 +232,12 @@ install_rclone_plugin() {
 
   ensure_rclone_plugin_dirs
 
-  write_line "${COLOR_YELLOW}" "Installing itstoggle/docker-volume-rclone_rd plugin..."
+  write_line "${COLOR_YELLOW}" "Installing ghcr.io/taldx123/docker-volume-rclone_rd plugin..."
   write_line "${COLOR_DARKGRAY}" "  Config dir: ${RCLONE_CONFIG_DIR}"
   write_line "${COLOR_DARKGRAY}" "  Cache dir:  ${RCLONE_CACHE_DIR}"
   printf '\n'
 
-  if docker plugin install itstoggle/docker-volume-rclone_rd:amd64 \
+  if docker plugin install ghcr.io/taldx123/docker-volume-rclone_rd:amd64 \
     args=-v \
     --alias rclone \
     --grant-all-permissions \
@@ -665,7 +665,7 @@ run_full_setup() {
   if [[ -n "${existing}" ]]; then
     write_line "${COLOR_DARKGRAY}" "  Plugin already installed: ${existing}"
   else
-    if docker plugin install itstoggle/docker-volume-rclone_rd:amd64 \
+    if docker plugin install ghcr.io/taldx123/docker-volume-rclone_rd:amd64 \
       args=-v \
       --alias rclone \
       --grant-all-permissions \

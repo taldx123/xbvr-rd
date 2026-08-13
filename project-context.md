@@ -22,7 +22,7 @@ _This file contains critical rules and patterns that AI agents must follow when 
 - **XBVR**: `xbvr:latest`
 - **Python**: `python3` (specifically used for host helper scripts like `download_cuepoints.py`)
 - **Bash Scripting**: `#!/usr/bin/env bash` using strict error handling.
-- **Rclone Plugin**: `itstoggle/docker-volume-rclone_rd:amd64` (critical dependency for Real-Debrid mounts)
+- **Rclone Plugin**: `ghcr.io/taldx123/docker-volume-rclone_rd:amd64` (critical dependency for Real-Debrid mounts)
 
 ## Critical Implementation Rules
 
@@ -40,7 +40,7 @@ _This file contains critical rules and patterns that AI agents must follow when 
 
 ### Framework-Specific Rules (Orchestration)
 
-- **Rclone Plugin Requirement:** The `itstoggle/docker-volume-rclone_rd:amd64` Docker plugin must be installed on the host with full permissions before the stack can be deployed, as the `realdebrid` volume driver relies on it.
+- **Rclone Plugin Requirement:** The `ghcr.io/taldx123/docker-volume-rclone_rd:amd64` Docker plugin must be installed on the host with full permissions before the stack can be deployed, as the `realdebrid` volume driver relies on it.
 - **Interactive Management:** All stack management (start, stop, cleanup, cache reset) should go through the `xbvr-manager` script to ensure data directories are properly permissioned and caches are cleared.
 - **Explicit Env File:** `docker compose` commands must always explicitly pass `--env-file .env` when run from the `docker/` directory, rather than relying on default behaviors.
 
