@@ -40,7 +40,7 @@ _This file contains critical rules and patterns that AI agents must follow when 
 
 ### Framework-Specific Rules (Orchestration)
 
-- **Rclone Plugin Requirement:** The `ghcr.io/taldx123/docker-volume-rclone_rd:amd64` Docker plugin must be installed on the host with full permissions before the stack can be deployed, as the `realdebrid` volume driver relies on it.
+- **Rclone Plugin Requirement:** The `ghcr.io/taldx123/docker-volume-rclone_rd:amd64` Docker plugin must be installed on the host with full permissions before the stack can be deployed, as the `realdebrid` and `gdrive` volume drivers rely on it.
 - **Interactive Management:** All stack management (start, stop, cleanup, cache reset) should go through the `xbvr-manager` script to ensure data directories are properly permissioned and caches are cleared.
 - **Explicit Env File:** `docker compose` commands must always explicitly pass `--env-file .env` when run from the `docker/` directory, rather than relying on default behaviors.
 

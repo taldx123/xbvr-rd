@@ -137,9 +137,9 @@ MARIADB_USER=xbvr
 MARIADB_PASSWORD=changeme
 MARIADB_DATABASE=xbvr
 
-# Paths (quote paths with spaces)
-TS_PATH='/media/xxx/Local Disk1/TS'
-JAV_PATH='/media/xxx/Local Disk1/JAV'
+# Storage Configuration
+# The stack uses the rclone Docker plugin to mount Google Drive directly.
+# Google Drive is configured via rclone and mounted automatically.
 ```
 
 ### Error Handling
@@ -175,4 +175,4 @@ Ensure `fuse` or `fuse3` is installed on the Linux host.
 
 - The repo-root `.env` is legacy; always use `docker/.env`
 - This repository is configuration-only; application code is in the XBVR repository
-- Real-Debrid mount requires the `rclone` Docker plugin installed on the host
+- Real-Debrid and Google Drive mounts require the `rclone` Docker plugin installed on the host

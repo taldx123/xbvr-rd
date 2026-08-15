@@ -78,20 +78,9 @@ services:
       - "${XBVR_PORT}:9999"
     volumes:
       - realdebrid:/videos/realdebrid             # Real-Debrid mount via rclone plugin
-      - arp:/videos/arp                     # Arp virtual mount
+      - arp:/videos/arp                           # Arp virtual mount
+      - gdrive:/videos/gdrive                     # Google Drive mount via rclone plugin
       - ../data/xbvr:/root/.config/xbvr           # XBVR config & metadata
-      - type: bind
-        source: ${TS_PATH}
-        target: /videos/TS                        # TS
-      - type: bind
-        source: ${JAV_PATH}
-        target: /videos/JAV                       # JAV
-      - type: bind
-        source: /mnt/localdisk/PT
-        target: /videos/PT                        # PT
-      - type: bind
-        source: ${OTHER_PATH}
-        target: /videos/OTHER                     # OTHER
     restart: unless-stopped
     networks:
       - xbvr-net
@@ -144,6 +133,17 @@ volumes:
     driver_opts:
       type: "webdav"
       webdav-url: "http://172.17.0.1:8080/"
+      allow_other: "true"
+      dir_cache_time: "10s"
+      vfs_cache_mode: "full"
+      vfs_read_ahead: "256M"
+      vfs_cache_max_size: "75G"
+      vfs_cache_max_age: "12h"
+
+  gdrive:
+    driver: rclone
+    driver_opts:
+      remote: "gdrive:"
       allow_other: "true"
       dir_cache_time: "10s"
       vfs_cache_mode: "full"

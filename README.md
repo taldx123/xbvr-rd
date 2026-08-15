@@ -25,7 +25,7 @@ This repository now keeps the launcher and environment file in `docker/`.
 
 - Docker with `docker compose` plugin
 - Real-Debrid API key
-- Existing media paths for `TS_PATH` and `JAV_PATH`
+- Configured Google Drive remote via `rclone config` saved in `data/rclone/config/rclone.conf`
 
 ### Linux
 
@@ -58,10 +58,9 @@ MARIADB_PORT=3306
 # Timezone - change to your zone, e.g. America/Sao_Paulo
 TZ=America/Sao_Paulo
 
-# --- Media library paths -----------------------------------
-# Linux example:
-TS_PATH='/media/xxx/Local Disk1/TS'
-JAV_PATH='/media/xxx/Local Disk1/JAV'
+# Storage Configuration
+# The stack uses the rclone Docker plugin to mount Google Drive directly.
+# Google Drive is configured via rclone config (placed in data/rclone/config).
 
 ```
 
@@ -78,8 +77,7 @@ JAV_PATH='/media/xxx/Local Disk1/JAV'
 | `CONCURRENT_SCRAPERS` | Number of concurrent scrapers | `6` |
 | `MARIADB_PORT` | Host port for MariaDB | `3306` |
 | `TZ` | Timezone | `America/Sao_Paulo` |
-| `TS_PATH` | Path to TS media library | Linux host path |
-| `JAV_PATH` | Path to JAV media library | Linux host path |
+
 
 ## Setup
 
@@ -90,7 +88,7 @@ Edit `docker/.env`.
 At minimum, set:
 - `RD_API_KEY` with your Real-Debrid API key
 - `MARIADB_PASSWORD` to a secure password
-- `TS_PATH` and `JAV_PATH` to your media directories
+- A valid `rclone.conf` in `data/rclone/config/` for Google Drive
 
 ### 2. Run the Launcher
 
@@ -159,8 +157,7 @@ The Real-Debrid mount is a Docker-managed volume, not a bind mount.
 ## Media Mounts
 
 ```
-${TS_PATH}  -> /videos/TS
-${JAV_PATH} -> /videos/JAV
+gdrive volume -> /videos/gdrive
 realdebrid volume -> /videos/realdebrid
 ```
 
