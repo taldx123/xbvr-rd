@@ -115,7 +115,7 @@ Select option `0` for full setup (creates directories, installs rclone plugin, s
 | 9 | Open the restart submenu for full stack or XBVR-only restart |
 | `B` | Open the backup submenu to backup MariaDB and/or XBVR data |
 | `A` | Access files with ffprobe (Keepalive Menu) to scan `.mp4` files that have not completed successfully in the last 5 days |
-| `C` | Check files table for missing physical files in the XBVR container |
+| `C` | Check files table for missing physical files in the XBVR container (runs in parallel batches) |
 | `D` | Download and merge cuepoints from timestamp.trade based on database matching |
 | `A -T` | Run the keepalive scan with per-file trace output |
 | `A -P 10` | Run the keepalive scan with custom parallelism |
@@ -126,7 +126,9 @@ Select option `0` for full setup (creates directories, installs rclone plugin, s
 | `O` | Open XBVR in a Brave/Chromium incognito window |
 | `Q` | Quit the helper |
 
-The keepalive scan stores successful runs in `/root/.config/xbvr/realdebrid-keepalive-state.tsv`, which is persisted through the XBVR config volume. By default, files with a successful `ffprobe` in the last 5 days are skipped. The progress and final summary show total files, skipped files, eligible files, completed files, successes, errors, and timeouts. Without `-T`, it keeps the output quiet aside from progress, errors, and the final summary. `-P` changes the parallel worker count, the default remains `10`, and `-ALL` bypasses the 5-day skip filter.
+The keepalive scan temporarily spawns a background container (`xbvr-keepalive-worker`) that mounts the `rclone` volumes with `vfs_cache_mode="off"`. This guarantees that heavy `ffprobe` reads do not trigger large chunk downloads to the main stack's cache on your SSD, avoiding stutter and freezing. It stores successful runs in `/root/.config/xbvr/realdebrid-keepalive-state.tsv`, which is persisted through the XBVR config volume. By default, files with a successful `ffprobe` in the last 5 days are skipped. The progress and final summary show total files, skipped files, eligible files, completed files, successes, errors, and timeouts. Without `-T`, it keeps the output quiet aside from progress, errors, and the final summary. `-P` changes the parallel worker count, the default remains `10`, and `-ALL` bypasses the 5-day skip filter. Closing the terminal or pressing `Ctrl+C` cleanly tears down the temporary container.
+
+The "Check missing files" tool (`C`) queries the database and runs parallel batches (50 concurrent files at a time) to dramatically speed up existence checks over remote mounts.
 
 The SexLikeReal cuepoints tool (`S`) stores successfully resolved studio IDs in `/root/.config/xbvr/slr-studio-cache.tsv` to avoid duplicate API calls. Cache entries are valid for 5 days. Both the keepalive scan and the SLR cuepoints tool use multi-threaded batch fetching with a default maximum of 10 concurrent parallel workers.
 

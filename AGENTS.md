@@ -62,8 +62,8 @@ chmod +x docker/xbvr-manager
 | 8 | View live logs |
 | 9 | Restart menu |
 | B | Backup Menu (Database / Full) |
-| A | Access files with ffprobe (Keepalive Menu) |
-| C | Check files table for missing physical files |
+| A | Access files with ffprobe (Keepalive Menu, runs in a temp disabled-cache container) |
+| C | Check files table for missing physical files (runs in parallel batches) |
 | D | Download cuepoints from timestamp.trade |
 | S | Download cuepoints from SexLikeReal |
 | O | Open XBVR in incognito browser |
