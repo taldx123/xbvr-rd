@@ -59,8 +59,8 @@ services:
   xbvr:
     # image: ghcr.io/xbapps/xbvr:latest
     # image: ghcr.io/xbapps/xbvr:0.4.39
-    # image: xbvr:latest
-    image: xbvr:SNAPSHOT
+    image: ghcr.io/taldx123/xbvr:latest
+    # image: xbvr:SNAPSHOT
     container_name: xbvr
     depends_on:
       mariadb:
@@ -118,6 +118,7 @@ volumes:
     driver_opts:
       type: "realdebrid"
       realdebrid-api_key: "${RD_API_KEY}"
+      realdebrid-torrent_name_format: "name_id"
       allow_other: "true"
       dir_cache_time: "1h"
       poll_interval: "1m"

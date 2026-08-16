@@ -10,7 +10,7 @@ Docker-based XBVR deployment with MariaDB, XBVR application, and Real-Debrid mou
 │   ├── .env
 │   ├── docker-compose.yml
 │   ├── mariadb/my.cnf
-│   └── xbvr-manager.sh
+│   └── xbvr-manager
 └── data/
     ├── mariadb/
     ├── xbvr/
@@ -93,8 +93,8 @@ At minimum, set:
 ### 2. Run the Launcher
 
 ```bash
-chmod +x docker/xbvr-manager.sh
-./docker/xbvr-manager.sh
+chmod +x docker/xbvr-manager
+./docker/xbvr-manager
 ```
 
 Select option `0` for full setup (creates directories, installs rclone plugin, starts stack).

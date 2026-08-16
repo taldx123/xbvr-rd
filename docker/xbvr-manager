@@ -1194,11 +1194,22 @@ invoke_backup() {
 
   if [[ "${target}" == "all" ]]; then
     write_line "${COLOR_YELLOW}" "Backing up MariaDB and XBVR data..."
-    cp -a "${MARIADB_DATA_DIR}" "${current_backup_dir}/mariadb"
-    cp -a "${XBVR_DATA_DIR}" "${current_backup_dir}/xbvr"
+    if ! cp -a "${MARIADB_DATA_DIR}" "${current_backup_dir}/mariadb" 2>/dev/null; then
+      write_line "${COLOR_DARKGRAY}" "  Elevated permissions required. You may be prompted for sudo."
+      sudo cp -a "${MARIADB_DATA_DIR}" "${current_backup_dir}/mariadb"
+      sudo chown -R "$(id -u):$(id -g)" "${current_backup_dir}/mariadb" 2>/dev/null || true
+    fi
+    if ! cp -a "${XBVR_DATA_DIR}" "${current_backup_dir}/xbvr" 2>/dev/null; then
+      sudo cp -a "${XBVR_DATA_DIR}" "${current_backup_dir}/xbvr"
+      sudo chown -R "$(id -u):$(id -g)" "${current_backup_dir}/xbvr" 2>/dev/null || true
+    fi
   elif [[ "${target}" == "db" ]]; then
     write_line "${COLOR_YELLOW}" "Backing up MariaDB data only..."
-    cp -a "${MARIADB_DATA_DIR}" "${current_backup_dir}/mariadb"
+    if ! cp -a "${MARIADB_DATA_DIR}" "${current_backup_dir}/mariadb" 2>/dev/null; then
+      write_line "${COLOR_DARKGRAY}" "  Elevated permissions required. You may be prompted for sudo."
+      sudo cp -a "${MARIADB_DATA_DIR}" "${current_backup_dir}/mariadb"
+      sudo chown -R "$(id -u):$(id -g)" "${current_backup_dir}/mariadb" 2>/dev/null || true
+    fi
   fi
 
   write_line "${COLOR_GREEN}" "OK: Backup completed at ${current_backup_dir}"

@@ -10,7 +10,7 @@ This is a Docker-based deployment configuration repository for XBVR. The applica
 │   ├── .env
 │   ├── docker-compose.yml
 │   ├── mariadb/my.cnf
-│   └── xbvr-manager.sh
+│   └── xbvr-manager
 ├── data/             # Persistent data (gitignored)
 │   ├── mariadb/
 │   ├── xbvr/
@@ -43,8 +43,8 @@ docker compose --env-file .env down -v
 ```
 
 ```bash
-chmod +x docker/xbvr-manager.sh
-./docker/xbvr-manager.sh
+chmod +x docker/xbvr-manager
+./docker/xbvr-manager
 ```
 
 ### Menu Options
