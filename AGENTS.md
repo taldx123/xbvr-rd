@@ -62,7 +62,7 @@ chmod +x docker/xbvr-manager.sh
 | 8 | View live logs |
 | 9 | Restart menu |
 | B | Backup Menu (Database / Full) |
-| A | Real-Debrid keepalive scan |
+| A | Access files with ffprobe (Keepalive Menu) |
 | C | Check files table for missing physical files |
 | D | Download cuepoints from timestamp.trade |
 | S | Download cuepoints from SexLikeReal |

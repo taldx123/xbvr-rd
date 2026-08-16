@@ -118,15 +118,15 @@ volumes:
     driver_opts:
       type: "realdebrid"
       realdebrid-api_key: "${RD_API_KEY}"
-      # poll_interval: "0"
       allow_other: "true"
-      dir_cache_time: "10s"
-      # buffer_size: "32M"
+      dir_cache_time: "1h"
+      poll_interval: "1m"
       vfs_cache_mode: "full"
+      vfs_read_chunk_size: "32M"
+      vfs_read_chunk_size_limit: "2G"
       vfs_read_ahead: "256M"
-      vfs_cache_max_size: "75G"
-      vfs_cache_max_age: "12h"
-      # vfs_cache_min_free_space: "20G"
+      vfs_cache_max_size: "150G"
+      vfs_cache_max_age: "1h"
 
   arp:
     driver: rclone
@@ -134,19 +134,24 @@ volumes:
       type: "webdav"
       webdav-url: "http://172.17.0.1:8080/"
       allow_other: "true"
-      dir_cache_time: "10s"
+      dir_cache_time: "1m"
       vfs_cache_mode: "full"
+      vfs_read_chunk_size: "32M"
+      vfs_read_chunk_size_limit: "2G"
       vfs_read_ahead: "256M"
-      vfs_cache_max_size: "75G"
-      vfs_cache_max_age: "12h"
+      vfs_cache_max_size: "40G"
+      vfs_cache_max_age: "1h"
 
   gdrive:
     driver: rclone
     driver_opts:
       remote: "gdrive:"
       allow_other: "true"
-      dir_cache_time: "10s"
+      dir_cache_time: "1000h"
+      poll_interval: "1m"
       vfs_cache_mode: "full"
+      vfs_read_chunk_size: "32M"
+      vfs_read_chunk_size_limit: "2G"
       vfs_read_ahead: "256M"
-      vfs_cache_max_size: "75G"
-      vfs_cache_max_age: "12h"
+      vfs_cache_max_size: "40G"
+      vfs_cache_max_age: "1h"

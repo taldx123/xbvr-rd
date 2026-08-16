@@ -8,3 +8,4 @@ backup/
 .opencode/
 _bmad/
 _bmad-output/
+.playwright-mcp/

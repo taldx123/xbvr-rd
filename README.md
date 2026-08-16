@@ -114,13 +114,14 @@ Select option `0` for full setup (creates directories, installs rclone plugin, s
 | 8 | View live logs |
 | 9 | Open the restart submenu for full stack or XBVR-only restart |
 | `B` | Open the backup submenu to backup MariaDB and/or XBVR data |
-| `A` | Run the Real-Debrid keepalive scan on `.mp4` files that have not completed successfully in the last 5 days |
+| `A` | Access files with ffprobe (Keepalive Menu) to scan `.mp4` files that have not completed successfully in the last 5 days |
 | `C` | Check files table for missing physical files in the XBVR container |
 | `D` | Download and merge cuepoints from timestamp.trade based on database matching |
-| `A -T` | Run the same keepalive scan with per-file trace output |
+| `A -T` | Run the keepalive scan with per-file trace output |
 | `A -P 10` | Run the keepalive scan with custom parallelism |
 | `A -P 10 -T` | Run the keepalive scan with both custom parallelism and trace output |
 | `A -ALL` | Bypass the 5-day filter and run the keepalive scan for all `.mp4` files |
+| `A --ROOT /path` | Target a specific custom directory instead of the menu defaults |
 | `S` | Download and merge cuepoints from SexLikeReal based on database matching |
 | `O` | Open XBVR in a Brave/Chromium incognito window |
 | `Q` | Quit the helper |

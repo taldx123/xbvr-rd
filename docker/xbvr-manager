@@ -238,7 +238,7 @@ install_rclone_plugin() {
   printf '\n'
 
   if docker plugin install ghcr.io/taldx123/docker-volume-rclone_rd:amd64 \
-    args=-v \
+      args="-v" \
     --alias rclone \
     --grant-all-permissions \
     config="${RCLONE_CONFIG_DIR}" \
@@ -460,8 +460,8 @@ open_browser() {
 
   # Start the browser in a separate session so Ctrl+C in this script does not kill it.
   if command -v brave-browser >/dev/null 2>&1; then
-    setsid -f brave-browser --incognito "${url}" </dev/null >/dev/null 2>&1 ||
-      nohup brave-browser --incognito "${url}" </dev/null >/dev/null 2>&1 &
+    setsid -f brave-browser --remote-debugging-port=9222 --incognito "${url}" </dev/null >/dev/null 2>&1 ||
+      nohup brave-browser --remote-debugging-port=9222 --incognito "${url}" </dev/null >/dev/null 2>&1 &
   elif command -v chromium >/dev/null 2>&1; then
     setsid -f chromium --incognito "${url}" </dev/null >/dev/null 2>&1 ||
       nohup chromium --incognito "${url}" </dev/null >/dev/null 2>&1 &
@@ -666,7 +666,7 @@ run_full_setup() {
     write_line "${COLOR_DARKGRAY}" "  Plugin already installed: ${existing}"
   else
     if docker plugin install ghcr.io/taldx123/docker-volume-rclone_rd:amd64 \
-      args=-v \
+        args="-v" \
       --alias rclone \
       --grant-all-permissions \
       config="${RCLONE_CONFIG_DIR}" \
@@ -776,9 +776,18 @@ run_realdebrid_keepalive() {
       -ALL|--ALL)
         run_all="true"
         ;;
+      -ROOT|--ROOT)
+        if [[ $# -lt 2 ]]; then
+          write_line "${COLOR_RED}" "ERROR: Missing value for ${1}."
+          pause_for_user
+          return
+        fi
+        media_root="${2}"
+        shift
+        ;;
       *)
-        write_line "${COLOR_RED}" "ERROR: Unsupported argument for option A: ${1}"
-        write_line "${COLOR_DARKGRAY}" "  Use 'A', 'A -T', 'A -P 10', or 'A -ALL'."
+        write_line "${COLOR_RED}" "ERROR: Unsupported argument: ${1}"
+        write_line "${COLOR_DARKGRAY}" "  Use '-T', '-P N', '-ALL', or '--ROOT /path'."
         pause_for_user
         return
         ;;
@@ -1237,6 +1246,49 @@ backup_menu() {
   done
 }
 
+keepalive_menu() {
+  local extra_args=("$@")
+  while true; do
+    write_header
+    write_line "${COLOR_DARKCYAN}" "  KEEPALIVE MENU"
+    printf '%s\n' "  [1] Access only Real-Debrid files (/videos/realdebrid)"
+    printf '%s\n' "  [2] Access Arp files (/videos/arp)"
+    printf '%s\n' "  [3] Access Google Drive files (/videos/gdrive)"
+    printf '%s\n' "  [4] Access all items (/videos/)"
+    printf '%s\n' "  [B] Back"
+    printf '\n'
+
+    read -r -p "Choose an option: " ka_choice
+    read -r -a ka_choice_parts <<< "${ka_choice}"
+
+    case "${ka_choice_parts[0]^^}" in
+      1)
+        run_realdebrid_keepalive "${extra_args[@]}" "${ka_choice_parts[@]:1}"
+        return
+        ;;
+      2)
+        run_realdebrid_keepalive --root "/videos/arp" "${extra_args[@]}" "${ka_choice_parts[@]:1}"
+        return
+        ;;
+      3)
+        run_realdebrid_keepalive --root "/videos/gdrive" "${extra_args[@]}" "${ka_choice_parts[@]:1}"
+        return
+        ;;
+      4)
+        run_realdebrid_keepalive --root "/videos/" "${extra_args[@]}" "${ka_choice_parts[@]:1}"
+        return
+        ;;
+      B)
+        return
+        ;;
+      *)
+        write_line "${COLOR_RED}" "Invalid option. Please try again."
+        sleep 1
+        ;;
+    esac
+  done
+}
+
 while true; do
   write_header
 
@@ -1249,7 +1301,7 @@ while true; do
   printf '%s\n' "  [3] Start stack  (volumes managed by docker compose)"
   printf '%s\n' "  [4] Stop stack + remove volumes"
   printf '%s\n' "  [5] Stop stack + remove volumes + clear rclone cache"
-  printf '%s\n' "  [A] Access all Real-Debrid files with ffprobe  (use '-T', '-P N', or '-ALL')"
+  printf '%s\n' "  [A] Access files with ffprobe (Keepalive Menu)  (use '-T', '-P N', or '-ALL')"
   printf '%s\n' "  [C] Check files table for missing physical files"
   printf '%s\n' "  [D] Download cuepoints from timestamp.trade"
   printf '%s\n' "  [S] Download cuepoints from SexLikeReal"
@@ -1276,7 +1328,7 @@ while true; do
     3) start_stack ;;
     4) stop_stack ;;
     5) stop_stack_and_clear_cache ;;
-    A) run_realdebrid_keepalive "${choice_parts[@]:1}" ;;
+    A) keepalive_menu "${choice_parts[@]:1}" ;;
     C) check_missing_files ;;
     D) download_cuepoints ;;
     S) download_slr_cuepoints ;;
