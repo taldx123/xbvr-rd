@@ -6,16 +6,18 @@ This is a Docker-based deployment configuration repository for XBVR. The applica
 
 ```
 .
-├── docker/           # Docker Compose configuration, env file, and launcher
+├── docker/           # Docker Compose configuration, env file, and scripts
 │   ├── .env
+│   ├── arp-webdav/
 │   ├── docker-compose.yml
+│   ├── download_cuepoints.py
+│   ├── download_slr_cuepoints.py
 │   ├── mariadb/my.cnf
 │   └── xbvr-manager
 ├── data/             # Persistent data (gitignored)
 │   ├── mariadb/
 │   ├── xbvr/
 │   └── rclone/
-└── example.env       # Reference template
 ```
 
 ## Development Commands
@@ -51,22 +53,22 @@ chmod +x docker/xbvr-manager
 
 | Option | Action |
 |--------|--------|
-| 0 | Full setup (create dirs, install rclone, start) |
+| 0 | Full setup (runs steps 1 through 3 automatically) |
 | 1 | Create required directories |
 | 2 | Install rclone_RD Docker plugin |
-| 3 | Start stack |
+| 3 | Start stack (volumes managed by docker compose) |
 | 4 | Stop stack and remove volumes |
 | 5 | Stop stack, remove volumes, and clear rclone cache |
-| 6 | Partial cleanup (containers, volumes, rclone plugin) |
-| 7 | Full cleanup (keeps rclone config on Linux) |
-| 8 | View live logs |
-| 9 | Restart menu |
-| B | Backup Menu (Database / Full) |
 | A | Access files with ffprobe (Keepalive Menu, runs in a temp disabled-cache container) |
 | C | Check files table for missing physical files (runs in parallel batches) |
 | D | Download cuepoints from timestamp.trade |
 | S | Download cuepoints from SexLikeReal |
-| O | Open XBVR in incognito browser |
+| 8 | View live logs |
+| 9 | Restart menu (full stack or XBVR only) |
+| O | Open XBVR in Brave incognito |
+| B | Backup Menu (Database / Full) |
+| 6 | Partial cleanup (remove plugin + clear cache) |
+| 7 | Full cleanup (remove everything including app data) |
 | Q | Quit |
 
 ## Code Style Guidelines
@@ -175,4 +177,4 @@ Ensure `fuse` or `fuse3` is installed on the Linux host.
 
 - The repo-root `.env` is legacy; always use `docker/.env`
 - This repository is configuration-only; application code is in the XBVR repository
-- Real-Debrid and Google Drive mounts require the `rclone` Docker plugin installed on the host
+- Real-Debrid, Google Drive, and Arp mounts require the `rclone` Docker plugin installed on the host
