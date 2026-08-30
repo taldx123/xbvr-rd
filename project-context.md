@@ -1,6 +1,6 @@
 ---
 project_name: 'xbvr'
-user_name: 'Maicon'
+user_name: 'Taldx'
 date: '2026-08-02'
 sections_completed:
   ['technology_stack', 'language_rules', 'framework_rules', 'testing_rules', 'quality_rules', 'workflow_rules', 'anti_patterns']

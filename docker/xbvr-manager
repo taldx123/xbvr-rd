@@ -1243,6 +1243,29 @@ download_slr_cuepoints() {
   pause_for_user
 }
 
+download_arp_cuepoints() {
+  write_line "${COLOR_CYAN}" "Starting ARP cuepoints generation from local scraper data..."
+
+  local db_user db_pass db_name
+  db_user="$(read_env_value "MARIADB_USER")"
+  db_pass="$(read_env_value "MARIADB_PASSWORD")"
+  db_name="$(read_env_value "MARIADB_DATABASE")"
+
+  if [[ -z "${db_user}" || -z "${db_pass}" || -z "${db_name}" ]]; then
+    write_line "${COLOR_RED}" "ERROR: Database credentials not found in ${ENV_FILE}."
+    pause_for_user
+    return
+  fi
+
+  if command -v python3 >/dev/null 2>&1; then
+    python3 "${DOCKER_DIR}/download_arp_cuepoints.py" "${db_user}" "${db_pass}" "${db_name}"
+  else
+    write_line "${COLOR_RED}" "ERROR: python3 is not installed on the host. Please install python3 to use this feature."
+  fi
+
+  pause_for_user
+}
+
 invoke_backup() {
   local target="$1"
   confirm_docker_running || {
@@ -1375,6 +1398,42 @@ keepalive_menu() {
   done
 }
 
+cuepoints_menu() {
+  while true; do
+    write_header
+    write_line "${COLOR_DARKCYAN}" "  CUEPOINTS MENU"
+    printf '%s\n' "  [1] Download cuepoints from timestamp.trade"
+    printf '%s\n' "  [2] Download cuepoints from SexLikeReal"
+    printf '%s\n' "  [3] Generate cuepoints from local ARP scraper data"
+    printf '%s\n' "  [B] Back"
+    printf '\n'
+
+    read -r -p "Choose an option: " cue_choice
+
+    case "${cue_choice^^}" in
+      1)
+        download_cuepoints
+        return
+        ;;
+      2)
+        download_slr_cuepoints
+        return
+        ;;
+      3)
+        download_arp_cuepoints
+        return
+        ;;
+      B)
+        return
+        ;;
+      *)
+        write_line "${COLOR_RED}" "Invalid option. Please try again."
+        sleep 1
+        ;;
+    esac
+  done
+}
+
 while true; do
   write_header
 
@@ -1388,9 +1447,8 @@ while true; do
   printf '%s\n' "  [4] Stop stack + remove volumes"
   printf '%s\n' "  [5] Stop stack + remove volumes + clear rclone cache"
   printf '%s\n' "  [A] Access files with ffprobe (Keepalive Menu)  (use '-T', '-P N', or '-ALL')"
-  printf '%s\n' "  [C] Check files table for missing physical files"
-  printf '%s\n' "  [D] Download cuepoints from timestamp.trade"
-  printf '%s\n' "  [S] Download cuepoints from SexLikeReal"
+  printf '%s\n' "  [M] Check files table for missing physical files"
+  printf '%s\n' "  [C] Cuepoints Menu (timestamp.trade, SLR, ARP)"
   printf '%s\n' "  [8] View live logs"
   printf '%s\n' "  [9] Restart menu  (full stack or XBVR only)"
   printf '%s\n' "  [O] Open XBVR in Brave incognito"
@@ -1415,9 +1473,8 @@ while true; do
     4) stop_stack ;;
     5) stop_stack_and_clear_cache ;;
     A) keepalive_menu "${choice_parts[@]:1}" ;;
-    C) check_missing_files ;;
-    D) download_cuepoints ;;
-    S) download_slr_cuepoints ;;
+    M) check_missing_files ;;
+    C) cuepoints_menu ;;
     6) invoke_partial_cleanup ;;
     7) invoke_cleanup ;;
     8) show_logs ;;
