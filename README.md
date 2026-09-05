@@ -186,6 +186,22 @@ chmod 755 data/xbvr/bin/ffprobe data/xbvr/bin/ffmpeg
 
 Ensure `fuse` or `fuse3` is installed on the Linux host.
 
+### Managing Scraper Rate Limits (429 Too Many Requests)
+If you are seeing `429 Too Many Requests`, `Forbidden` (403), or `unexpected EOF` errors in your `data/xbvr/xbvr.log`, your IP is likely being temporarily blocked by a studio's anti-bot protection (like Cloudflare) because XBVR is scraping too fast. 
+
+You can fix this using an undocumented configuration in the database that forces concurrent scrapers into a single-file queue and applies a random delay between requests for specific sites.
+
+To add a 1 to 2.5-second random delay for specific sites (e.g., `vrbangers.com`, `arporn.com`, `povr.com`, `vrhush.com`, `virtualrealporn.com`, `porncornvr.com`, `realjamvr.com`), run the following SQL command against your `xbvr` database:
+```sql
+INSERT INTO kvs (`key`, value) VALUES (
+    'scraper_rate_limits',
+    '{"sites": [{"name": "vrbangers.com", "mindelay": 1000, "maxdelay": 2500}, {"name": "arporn.com", "mindelay": 1000, "maxdelay": 2500}, {"name": "povr.com", "mindelay": 1000, "maxdelay": 2500}, {"name": "vrhush.com", "mindelay": 1000, "maxdelay": 2500}, {"name": "virtualrealporn.com", "mindelay": 1000, "maxdelay": 2500}, {"name": "porncornvr.com", "mindelay": 1000, "maxdelay": 2500}, {"name": "realjamvr.com", "mindelay": 1000, "maxdelay": 2500}]}'
+) ON DUPLICATE KEY UPDATE value=VALUES(value);
+```
+*(After executing this, restart the XBVR container for the changes to take effect: `docker restart xbvr`)*
+
+**Note:** The `"name"` field must exactly match the primary domain of the scraper as defined in the source code (e.g., `povr.com`, `vrhush.com`, `virtualrealporn.com`).
+
 ## Cleanup Behavior
 
 | Option | What it removes | What it keeps |
