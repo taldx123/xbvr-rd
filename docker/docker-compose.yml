@@ -45,10 +45,12 @@ services:
   arp-webdav:
     build: ./arp-webdav
     container_name: arp-webdav
+    environment:
+      JSON_PATH: "/app/links.json"
     ports:
       - "172.17.0.1:8080:8080"
     volumes:
-      - ~/work/projects/arp/scraped/authenticated_links.json:/app/authenticated_links.json:ro
+      - ${ARP_LINKS_FILE}:/app/links.json:ro
     restart: unless-stopped
     networks:
       - xbvr-net
@@ -108,7 +110,7 @@ networks:
 # Volumes
 # "realdebrid", "arp", and "gdrive" are managed by docker-compose with the rclone driver.
 # They will be created when the stack starts and removed when stopped with "-v" flag.
-# Deploy sequence: 
+# Deploy sequence:
 #   1. Run the Linux helper -> option 2 to install the rclone plugin
 #   2. Run option 3 to start the stack (compose will create the volumes)
 # ---------------------------------------------------------------
