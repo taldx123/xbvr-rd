@@ -10,6 +10,7 @@ This is a Docker-based deployment configuration repository for XBVR. The applica
 │   ├── .env
 │   ├── arp-webdav/
 │   ├── docker-compose.yml
+│   ├── download_arp_cuepoints.py
 │   ├── download_cuepoints.py
 │   ├── download_slr_cuepoints.py
 │   ├── mariadb/my.cnf
@@ -60,9 +61,8 @@ chmod +x docker/xbvr-manager
 | 4 | Stop stack and remove volumes |
 | 5 | Stop stack, remove volumes, and clear rclone cache |
 | A | Access files with ffprobe (Keepalive Menu, runs in a temp disabled-cache container) |
-| C | Check files table for missing physical files (runs in parallel batches) |
-| D | Download cuepoints from timestamp.trade |
-| S | Download cuepoints from SexLikeReal |
+| M | Check files table for missing physical files (runs in parallel batches) |
+| C | Cuepoints Menu (timestamp.trade, SexLikeReal, ARP) |
 | 8 | View live logs |
 | 9 | Restart menu (full stack or XBVR only) |
 | O | Open XBVR in Brave incognito |

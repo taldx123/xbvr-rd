@@ -19,8 +19,8 @@ _This file contains critical rules and patterns that AI agents must follow when 
 
 - **Docker & Docker Compose**: Standard host requirements.
 - **MariaDB**: `mariadb:lts`
-- **XBVR**: `xbvr:latest`
-- **Python**: `python3` (specifically used for host helper scripts like `download_cuepoints.py` and `download_slr_cuepoints.py`)
+- **XBVR**: `ghcr.io/taldx123/xbvr:${XBVR_VERSION:-latest}`
+- **Python**: `python3` (specifically used for host helper scripts like `download_cuepoints.py`, `download_slr_cuepoints.py`, and `download_arp_cuepoints.py`)
 - **Bash Scripting**: `#!/usr/bin/env bash` using strict error handling.
 - **Rclone Plugin**: `ghcr.io/taldx123/docker-volume-rclone_rd:amd64` (critical dependency for Real-Debrid, Google Drive, and Arp mounts)
 

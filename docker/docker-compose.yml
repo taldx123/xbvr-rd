@@ -59,10 +59,7 @@ services:
   # XBVR – main application
   # -----------------------------------------------------------
   xbvr:
-    # image: ghcr.io/xbapps/xbvr:latest
-    # image: ghcr.io/xbapps/xbvr:0.4.39
-    image: ghcr.io/taldx123/xbvr:latest
-    # image: xbvr:SNAPSHOT
+    image: ghcr.io/taldx123/xbvr:${XBVR_VERSION:-latest}
     container_name: xbvr
     depends_on:
       mariadb:

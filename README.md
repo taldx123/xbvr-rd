@@ -10,6 +10,7 @@ Docker-based XBVR deployment with MariaDB, XBVR application, and Real-Debrid, Go
 │   ├── .env
 │   ├── arp-webdav/
 │   ├── docker-compose.yml
+│   ├── download_arp_cuepoints.py
 │   ├── download_cuepoints.py
 │   ├── download_slr_cuepoints.py
 │   ├── mariadb/my.cnf
@@ -53,6 +54,7 @@ MARIADB_PASSWORD=changeme
 MARIADB_DATABASE=xbvr
 
 # --- XBVR --------------------------------------------------
+XBVR_VERSION=latest
 XBVR_PORT=9999
 DB_CONNECTION_POOL_SIZE=300
 CONCURRENT_SCRAPERS=6
@@ -60,6 +62,9 @@ MARIADB_PORT=3306
 
 # Timezone - change to your zone, e.g. America/Sao_Paulo
 TZ=America/Sao_Paulo
+
+# --- Arp WebDAV --------------------------------------------
+ARP_LINKS_FILE=/path/to/your/unauthenticated_links.json
 
 # Storage Configuration
 # The stack uses the rclone Docker plugin to mount Google Drive directly.
@@ -75,11 +80,13 @@ TZ=America/Sao_Paulo
 | `MARIADB_USER` | Database user for XBVR | `xbvr` |
 | `MARIADB_PASSWORD` | Database password | `changeme` |
 | `MARIADB_DATABASE` | Database name | `xbvr` |
+| `XBVR_VERSION` | XBVR image version | `latest` |
 | `XBVR_PORT` | Host port for XBVR web UI | `9999` |
 | `DB_CONNECTION_POOL_SIZE` | MariaDB connection pool size | `300` |
 | `CONCURRENT_SCRAPERS` | Number of concurrent scrapers | `6` |
 | `MARIADB_PORT` | Host port for MariaDB | `3306` |
 | `TZ` | Timezone | `America/Sao_Paulo` |
+| `ARP_LINKS_FILE` | Path to Arp unauthenticated_links.json file | |
 
 
 ## Setup
@@ -118,9 +125,8 @@ Select option `0` for full setup (creates directories, installs rclone plugin, s
 | `A -P 10 -T` | Run the keepalive scan with both custom parallelism and trace output |
 | `A -ALL` | Bypass the 5-day filter and run the keepalive scan for all `.mp4` files |
 | `A --ROOT /path` | Target a specific custom directory instead of the menu defaults |
-| `C` | Check files table for missing physical files in the XBVR container (runs in parallel batches) |
-| `D` | Download and merge cuepoints from timestamp.trade based on database matching |
-| `S` | Download and merge cuepoints from SexLikeReal based on database matching |
+| `M` | Check files table for missing physical files in the XBVR container (runs in parallel batches) |
+| `C` | Cuepoints Menu (timestamp.trade, SexLikeReal, ARP) |
 | 8 | View live logs |
 | 9 | Open the restart submenu for full stack or XBVR-only restart |
 | `O` | Open XBVR in a Brave/Chromium incognito window |
@@ -131,9 +137,9 @@ Select option `0` for full setup (creates directories, installs rclone plugin, s
 
 The keepalive scan temporarily spawns a background container (`xbvr-keepalive-worker`) that mounts the `rclone` volumes with `vfs_cache_mode="off"`. This guarantees that heavy `ffprobe` reads do not trigger large chunk downloads to the main stack's cache on your SSD, avoiding stutter and freezing. It stores successful runs in `/root/.config/xbvr/realdebrid-keepalive-state.tsv`, which is persisted through the XBVR config volume. By default, files with a successful `ffprobe` in the last 5 days are skipped. The progress and final summary show total files, skipped files, eligible files, completed files, successes, errors, and timeouts. Without `-T`, it keeps the output quiet aside from progress, errors, and the final summary. `-P` changes the parallel worker count, the default remains `10`, and `-ALL` bypasses the 5-day skip filter. Closing the terminal or pressing `Ctrl+C` cleanly tears down the temporary container.
 
-The "Check missing files" tool (`C`) queries the database and runs parallel batches (50 concurrent files at a time) to dramatically speed up existence checks over remote mounts.
+The "Check missing files" tool (`M`) queries the database and runs parallel batches (50 concurrent files at a time) to dramatically speed up existence checks over remote mounts.
 
-The SexLikeReal cuepoints tool (`S`) stores successfully resolved studio IDs in `/root/.config/xbvr/slr-studio-cache.tsv` to avoid duplicate API calls. Cache entries are valid for 5 days. Both the keepalive scan and the SLR cuepoints tool use multi-threaded batch fetching with a default maximum of 10 concurrent parallel workers.
+The SexLikeReal cuepoints option stores successfully resolved studio IDs in `/root/.config/xbvr/slr-studio-cache.tsv` to avoid duplicate API calls. Cache entries are valid for 5 days. Both the keepalive scan and the SLR cuepoints tool use multi-threaded batch fetching with a default maximum of 10 concurrent parallel workers.
 
 ## Access
 

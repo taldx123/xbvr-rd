@@ -774,8 +774,12 @@ run_realdebrid_keepalive() {
       -o vfs_cache_mode="off" \
       "${vol_gdrive}" >/dev/null
 
+    local env_xbvr_version
+    env_xbvr_version="$(read_env_value "XBVR_VERSION")"
+    local fallback_image="ghcr.io/taldx123/xbvr:${env_xbvr_version:-latest}"
+    
     local xbvr_image
-    xbvr_image="$(docker inspect --format='{{.Config.Image}}' xbvr 2>/dev/null || echo 'ghcr.io/taldx123/xbvr:latest')"
+    xbvr_image="$(docker inspect --format='{{.Config.Image}}' xbvr 2>/dev/null || echo "${fallback_image}")"
 
     if ! docker run -d --rm --name "${container_name}" \
       -v "${vol_rd}:/videos/realdebrid" \
