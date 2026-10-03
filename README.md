@@ -81,6 +81,7 @@ ARP_LINKS_FILE=/path/to/your/unauthenticated_links.json
 | `MARIADB_PASSWORD` | Database password | `changeme` |
 | `MARIADB_DATABASE` | Database name | `xbvr` |
 | `XBVR_VERSION` | XBVR image version | `latest` |
+| `RCLONE_PLUGIN_VERSION` | Rclone plugin image version | `amd64` |
 | `XBVR_PORT` | Host port for XBVR web UI | `9999` |
 | `DB_CONNECTION_POOL_SIZE` | MariaDB connection pool size | `300` |
 | `CONCURRENT_SCRAPERS` | Number of concurrent scrapers | `6` |
@@ -115,7 +116,7 @@ Select option `0` for full setup (creates directories, installs rclone plugin, s
 |--------|--------|
 | 0 | Full setup (runs steps 1 through 3 automatically) |
 | 1 | Create required directories |
-| 2 | Install rclone_RD Docker plugin |
+| 2 | Install rclone_rd Docker plugin |
 | 3 | Start stack (volumes managed by docker compose) |
 | 4 | Stop stack and remove volumes |
 | 5 | Stop stack, remove volumes, and clear rclone cache |

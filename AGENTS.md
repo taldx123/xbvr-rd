@@ -56,7 +56,7 @@ chmod +x docker/xbvr-manager
 |--------|--------|
 | 0 | Full setup (runs steps 1 through 3 automatically) |
 | 1 | Create required directories |
-| 2 | Install rclone_RD Docker plugin |
+| 2 | Install rclone_rd Docker plugin |
 | 3 | Start stack (volumes managed by docker compose) |
 | 4 | Stop stack and remove volumes |
 | 5 | Stop stack, remove volumes, and clear rclone cache |
@@ -177,4 +177,4 @@ Ensure `fuse` or `fuse3` is installed on the Linux host.
 
 - The repo-root `.env` is legacy; always use `docker/.env`
 - This repository is configuration-only; application code is in the XBVR repository
-- Real-Debrid, Google Drive, and Arp mounts require the `rclone` Docker plugin installed on the host
+- Real-Debrid, Google Drive, and Arp mounts require the `rclone_rd` Docker plugin installed on the host

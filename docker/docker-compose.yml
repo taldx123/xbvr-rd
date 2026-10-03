@@ -76,9 +76,9 @@ services:
     ports:
       - "${XBVR_PORT}:9999"
     volumes:
-      - realdebrid:/videos/realdebrid             # Real-Debrid mount via rclone plugin
+      - realdebrid:/videos/realdebrid             # Real-Debrid mount via rclone_rd plugin
       - arp:/videos/arp                           # Arp virtual mount
-      - gdrive:/videos/gdrive                     # Google Drive mount via rclone plugin
+      - gdrive:/videos/gdrive                     # Google Drive mount via rclone_rd plugin
       - ../data/xbvr:/root/.config/xbvr           # XBVR config & metadata
     restart: unless-stopped
     networks:
@@ -105,15 +105,15 @@ networks:
 
 # ---------------------------------------------------------------
 # Volumes
-# "realdebrid", "arp", and "gdrive" are managed by docker-compose with the rclone driver.
+# "realdebrid", "arp", and "gdrive" are managed by docker-compose with the rclone_rd driver.
 # They will be created when the stack starts and removed when stopped with "-v" flag.
 # Deploy sequence:
-#   1. Run the Linux helper -> option 2 to install the rclone plugin
+#   1. Run the Linux helper -> option 2 to install the rclone_rd plugin
 #   2. Run option 3 to start the stack (compose will create the volumes)
 # ---------------------------------------------------------------
 volumes:
   realdebrid:
-    driver: rclone
+    driver: rclone_rd
     driver_opts:
       type: "realdebrid"
       realdebrid-api_key: "${RD_API_KEY}"
@@ -129,7 +129,7 @@ volumes:
       vfs_cache_max_age: "1h"
 
   arp:
-    driver: rclone
+    driver: rclone_rd
     driver_opts:
       type: "webdav"
       webdav-url: "http://172.17.0.1:8080/"
@@ -143,7 +143,7 @@ volumes:
       vfs_cache_max_age: "1h"
 
   gdrive:
-    driver: rclone
+    driver: rclone_rd
     driver_opts:
       remote: "gdrive:"
       allow_other: "true"

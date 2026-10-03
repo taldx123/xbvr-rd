@@ -206,7 +206,7 @@ initialize_directories() {
 }
 
 find_rclone_plugin() {
-  docker plugin ls --format '{{.Name}}' 2>/dev/null | grep -i 'rclone' || true
+  docker plugin ls --format '{{.Name}}' 2>/dev/null | grep -E '^rclone_rd(:|$)' || true
 }
 
 is_xbvr_running() {
@@ -221,7 +221,7 @@ install_rclone_plugin() {
     return
   }
 
-  write_line "${COLOR_YELLOW}" "Checking if rclone plugin is already installed..."
+  write_line "${COLOR_YELLOW}" "Checking if rclone_rd plugin is already installed..."
   local existing
   existing="$(find_rclone_plugin)"
   if [[ -n "${existing}" ]]; then
@@ -230,16 +230,31 @@ install_rclone_plugin() {
     return
   fi
 
+  local existing_legacy
+  existing_legacy="$(docker plugin ls --format '{{.Name}}' 2>/dev/null | grep -E '^rclone(:|$)' || true)"
+  if [[ -n "${existing_legacy}" ]]; then
+    write_line "${COLOR_YELLOW}" "  Found legacy plugin '${existing_legacy}'. Removing..."
+    docker plugin disable rclone >/dev/null 2>&1 || true
+    docker plugin rm rclone >/dev/null 2>&1 || true
+  fi
+
   ensure_rclone_plugin_dirs
 
-  write_line "${COLOR_YELLOW}" "Installing ghcr.io/taldx123/docker-volume-rclone_rd plugin..."
+  local rclone_version
+  rclone_version="$(read_env_value "RCLONE_PLUGIN_VERSION")"
+  if [[ -z "${rclone_version}" ]]; then
+    rclone_version="$(read_env_value "RCLONE_VERSION")"
+  fi
+  rclone_version="${rclone_version:-amd64}"
+
+  write_line "${COLOR_YELLOW}" "Installing ghcr.io/taldx123/docker-volume-rclone_rd:${rclone_version} plugin..."
   write_line "${COLOR_DARKGRAY}" "  Config dir: ${RCLONE_CONFIG_DIR}"
   write_line "${COLOR_DARKGRAY}" "  Cache dir:  ${RCLONE_CACHE_DIR}"
   printf '\n'
 
-  if docker plugin install ghcr.io/taldx123/docker-volume-rclone_rd:amd64 \
+  if docker plugin install "ghcr.io/taldx123/docker-volume-rclone_rd:${rclone_version}" \
       args="-v" \
-    --alias rclone \
+    --alias rclone_rd \
     --grant-all-permissions \
     config="${RCLONE_CONFIG_DIR}" \
     cache="${RCLONE_CACHE_DIR}"; then
@@ -257,12 +272,12 @@ verify_rclone_plugin() {
   local plugin
   plugin="$(find_rclone_plugin)"
   if [[ -z "${plugin}" ]]; then
-    write_line "${COLOR_RED}" "ERROR: rclone plugin not found. Please install it first (option 2)."
+    write_line "${COLOR_RED}" "ERROR: rclone_rd plugin not found. Please install it first (option 2)."
     return 1
   fi
 
   if [[ "${silent_if_exists}" != "true" ]]; then
-    write_line "${COLOR_GREEN}" "  rclone plugin is installed."
+    write_line "${COLOR_GREEN}" "  rclone_rd plugin is installed."
   fi
 }
 
@@ -292,7 +307,7 @@ start_stack() {
   fi
 
   if ! verify_rclone_plugin true; then
-    write_line "${COLOR_YELLOW}" "  Please install the rclone plugin first (option 2)."
+    write_line "${COLOR_YELLOW}" "  Please install the rclone_rd plugin first (option 2)."
     pause_for_user
     return
   fi
@@ -551,9 +566,11 @@ invoke_partial_cleanup() {
     write_line "${COLOR_YELLOW}" "Stopping containers and removing volumes..."
     docker compose --env-file "${ENV_FILE}" down -v >/dev/null 2>&1
 
-    write_line "${COLOR_YELLOW}" "Disabling and removing rclone plugin..."
-    docker plugin disable rclone >/dev/null 2>&1
-    docker plugin rm rclone >/dev/null 2>&1
+    write_line "${COLOR_YELLOW}" "Disabling and removing rclone_rd plugin..."
+    docker plugin disable rclone_rd >/dev/null 2>&1 || true
+    docker plugin rm rclone_rd >/dev/null 2>&1 || true
+    docker plugin disable rclone >/dev/null 2>&1 || true
+    docker plugin rm rclone >/dev/null 2>&1 || true
   )
 
   local cache_reset_failed="false"
@@ -604,9 +621,11 @@ invoke_cleanup() {
     write_line "${COLOR_YELLOW}" "Stopping containers and removing volumes..."
     docker compose --env-file "${ENV_FILE}" down -v >/dev/null 2>&1
 
-    write_line "${COLOR_YELLOW}" "Disabling and removing rclone plugin..."
-    docker plugin disable rclone >/dev/null 2>&1
-    docker plugin rm rclone >/dev/null 2>&1
+    write_line "${COLOR_YELLOW}" "Disabling and removing rclone_rd plugin..."
+    docker plugin disable rclone_rd >/dev/null 2>&1 || true
+    docker plugin rm rclone_rd >/dev/null 2>&1 || true
+    docker plugin disable rclone >/dev/null 2>&1 || true
+    docker plugin rm rclone >/dev/null 2>&1 || true
   )
 
   write_line "${COLOR_YELLOW}" "Deleting ${MARIADB_DATA_DIR} ..."
@@ -659,15 +678,30 @@ run_full_setup() {
     return 1
   }
 
-  write_line "${COLOR_YELLOW}" "[Step 2/3] Installing rclone_RD plugin..."
+  write_line "${COLOR_YELLOW}" "[Step 2/3] Installing rclone_rd plugin..."
   local existing
   existing="$(find_rclone_plugin)"
   if [[ -n "${existing}" ]]; then
     write_line "${COLOR_DARKGRAY}" "  Plugin already installed: ${existing}"
   else
-    if docker plugin install ghcr.io/taldx123/docker-volume-rclone_rd:amd64 \
+    local existing_legacy
+    existing_legacy="$(docker plugin ls --format '{{.Name}}' 2>/dev/null | grep -E '^rclone(:|$)' || true)"
+    if [[ -n "${existing_legacy}" ]]; then
+      write_line "${COLOR_YELLOW}" "  Found legacy plugin '${existing_legacy}'. Removing..."
+      docker plugin disable rclone >/dev/null 2>&1 || true
+      docker plugin rm rclone >/dev/null 2>&1 || true
+    fi
+
+    local rclone_version
+    rclone_version="$(read_env_value "RCLONE_PLUGIN_VERSION")"
+    if [[ -z "${rclone_version}" ]]; then
+      rclone_version="$(read_env_value "RCLONE_VERSION")"
+    fi
+    rclone_version="${rclone_version:-amd64}"
+
+    if docker plugin install "ghcr.io/taldx123/docker-volume-rclone_rd:${rclone_version}" \
         args="-v" \
-      --alias rclone \
+      --alias rclone_rd \
       --grant-all-permissions \
       config="${RCLONE_CONFIG_DIR}" \
       cache="${RCLONE_CACHE_DIR}"; then
@@ -750,7 +784,7 @@ run_realdebrid_keepalive() {
     local rd_api_key
     rd_api_key="$(read_env_value "RD_API_KEY")"
 
-    docker volume create -d rclone \
+    docker volume create -d rclone_rd \
       -o type="realdebrid" \
       -o realdebrid-api_key="${rd_api_key}" \
       -o realdebrid-torrent_name_format="name_id" \
@@ -759,7 +793,7 @@ run_realdebrid_keepalive() {
       -o vfs_cache_mode="off" \
       "${vol_rd}" >/dev/null
 
-    docker volume create -d rclone \
+    docker volume create -d rclone_rd \
       -o type="webdav" \
       -o webdav-url="http://172.17.0.1:8080/" \
       -o allow_other="true" \
@@ -767,7 +801,7 @@ run_realdebrid_keepalive() {
       -o vfs_cache_mode="off" \
       "${vol_arp}" >/dev/null
 
-    docker volume create -d rclone \
+    docker volume create -d rclone_rd \
       -o remote="gdrive:" \
       -o allow_other="true" \
       -o dir_cache_time="1000h" \
@@ -1444,7 +1478,7 @@ while true; do
   write_line "${COLOR_DARKCYAN}" "  SETUP"
   printf '%s\n' "  [0] Full setup  (runs steps 1 through 3 automatically)"
   printf '%s\n' "  [1] Create required directories"
-  printf '%s\n' "  [2] Install rclone_RD Docker plugin"
+  printf '%s\n' "  [2] Install rclone_rd Docker plugin"
   printf '\n'
   write_line "${COLOR_DARKCYAN}" "  DAILY USE"
   printf '%s\n' "  [3] Start stack  (volumes managed by docker compose)"

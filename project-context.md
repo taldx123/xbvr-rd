@@ -22,7 +22,7 @@ _This file contains critical rules and patterns that AI agents must follow when 
 - **XBVR**: `ghcr.io/taldx123/xbvr:${XBVR_VERSION:-latest}`
 - **Python**: `python3` (specifically used for host helper scripts like `download_cuepoints.py`, `download_slr_cuepoints.py`, and `download_arp_cuepoints.py`)
 - **Bash Scripting**: `#!/usr/bin/env bash` using strict error handling.
-- **Rclone Plugin**: `ghcr.io/taldx123/docker-volume-rclone_rd:amd64` (critical dependency for Real-Debrid, Google Drive, and Arp mounts)
+- **Rclone Plugin**: `ghcr.io/taldx123/docker-volume-rclone_rd:${RCLONE_PLUGIN_VERSION:-amd64}` (critical dependency for Real-Debrid, Google Drive, and Arp mounts)
 
 ## Critical Implementation Rules
 
@@ -40,7 +40,7 @@ _This file contains critical rules and patterns that AI agents must follow when 
 
 ### Framework-Specific Rules (Orchestration)
 
-- **Rclone Plugin Requirement:** The `ghcr.io/taldx123/docker-volume-rclone_rd:amd64` Docker plugin must be installed on the host with full permissions before the stack can be deployed, as the `realdebrid`, `gdrive`, and `arp` volume drivers rely on it.
+- **Rclone Plugin Requirement:** The `ghcr.io/taldx123/docker-volume-rclone_rd:${RCLONE_PLUGIN_VERSION:-amd64}` Docker plugin (aliased as `rclone_rd`) must be installed on the host with full permissions before the stack can be deployed, as the `realdebrid`, `gdrive`, and `arp` volume drivers rely on it.
 - **Interactive Management:** All stack management (start, stop, cleanup, cache reset) should go through the `xbvr-manager` script to ensure data directories are properly permissioned and caches are cleared.
 - **Explicit Env File:** `docker compose` commands must always explicitly pass `--env-file .env` when run from the `docker/` directory, rather than relying on default behaviors.
 
