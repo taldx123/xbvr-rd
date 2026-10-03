@@ -19,6 +19,7 @@ This is a Docker-based deployment configuration repository for XBVR. The applica
 │   ├── mariadb/
 │   ├── xbvr/
 │   └── rclone/
+└── backup/           # Database and application backups (gitignored)
 ```
 
 ## Development Commands
@@ -33,7 +34,7 @@ docker compose -f docker/docker-compose.yml config --quiet
 grep -E '^[A-Z_]+=' docker/.env | cut -d= -f1
 
 # Lint Dockerfiles (install hadolint first)
-hadolint docker/docker-compose.yml
+hadolint docker/arp-webdav/Dockerfile
 ```
 
 ### Docker Compose Operations
@@ -140,7 +141,7 @@ MARIADB_PASSWORD=changeme
 MARIADB_DATABASE=xbvr
 
 # Storage Configuration
-# The stack uses the rclone Docker plugin to mount Google Drive directly.
+# The stack uses the rclone_rd Docker plugin to mount Google Drive directly.
 # Google Drive is configured via rclone and mounted automatically.
 ```
 
@@ -169,7 +170,7 @@ Restore execute bits after migrating `data/xbvr`:
 chmod 755 data/xbvr/bin/ffprobe data/xbvr/bin/ffmpeg
 ```
 
-### rclone plugin install fails
+### rclone_rd plugin install fails
 
 Ensure `fuse` or `fuse3` is installed on the Linux host.
 

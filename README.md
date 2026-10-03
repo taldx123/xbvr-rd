@@ -1,6 +1,6 @@
 # XBVR Stack
 
-Docker-based XBVR deployment with MariaDB, XBVR application, and Real-Debrid, Google Drive, and Arp mounting via the `rclone` Docker volume plugin.
+Docker-based XBVR deployment with MariaDB, XBVR application, and Real-Debrid, Google Drive, and Arp mounting via the `rclone_rd` Docker volume plugin.
 
 ## Project Structure
 
@@ -15,12 +15,13 @@ Docker-based XBVR deployment with MariaDB, XBVR application, and Real-Debrid, Go
 │   ├── download_slr_cuepoints.py
 │   ├── mariadb/my.cnf
 │   └── xbvr-manager
-└── data/
-    ├── mariadb/
-    ├── xbvr/
-    └── rclone/
-        ├── cache/
-        └── config/
+├── data/
+│   ├── mariadb/
+│   ├── xbvr/
+│   └── rclone/
+│       ├── cache/
+│       └── config/
+└── backup/
 ```
 
 This repository now keeps the launcher and environment file in `docker/`.
@@ -34,7 +35,7 @@ This repository now keeps the launcher and environment file in `docker/`.
 ### Linux
 
 - `bash`
-- `fuse` or `fuse3` (for rclone plugin)
+- `fuse` or `fuse3` (for rclone_rd plugin)
 
 ## Environment Variables
 
@@ -60,6 +61,9 @@ DB_CONNECTION_POOL_SIZE=300
 CONCURRENT_SCRAPERS=6
 MARIADB_PORT=3306
 
+# --- Rclone Plugin -----------------------------------------
+RCLONE_PLUGIN_VERSION=amd64
+
 # Timezone - change to your zone, e.g. America/Sao_Paulo
 TZ=America/Sao_Paulo
 
@@ -67,7 +71,7 @@ TZ=America/Sao_Paulo
 ARP_LINKS_FILE=/path/to/your/unauthenticated_links.json
 
 # Storage Configuration
-# The stack uses the rclone Docker plugin to mount Google Drive directly.
+# The stack uses the rclone_rd Docker plugin to mount Google Drive directly.
 # Google Drive is configured via rclone config (placed in data/rclone/config).
 
 ```
@@ -108,7 +112,7 @@ chmod +x docker/xbvr-manager
 ./docker/xbvr-manager
 ```
 
-Select option `0` for full setup (creates directories, installs rclone plugin, starts stack).
+Select option `0` for full setup (creates directories, installs rclone_rd plugin, starts stack).
 
 ## Menu Options
 
@@ -136,7 +140,7 @@ Select option `0` for full setup (creates directories, installs rclone plugin, s
 | 7 | Full cleanup (remove everything including app data) |
 | `Q` | Quit the helper |
 
-The keepalive scan temporarily spawns a background container (`xbvr-keepalive-worker`) that mounts the `rclone` volumes with `vfs_cache_mode="off"`. This guarantees that heavy `ffprobe` reads do not trigger large chunk downloads to the main stack's cache on your SSD, avoiding stutter and freezing. It stores successful runs in `/root/.config/xbvr/realdebrid-keepalive-state.tsv`, which is persisted through the XBVR config volume. By default, files with a successful `ffprobe` in the last 5 days are skipped. The progress and final summary show total files, skipped files, eligible files, completed files, successes, errors, and timeouts. Without `-T`, it keeps the output quiet aside from progress, errors, and the final summary. `-P` changes the parallel worker count, the default remains `10`, and `-ALL` bypasses the 5-day skip filter. Closing the terminal or pressing `Ctrl+C` cleanly tears down the temporary container.
+The keepalive scan temporarily spawns a background container (`xbvr-keepalive-worker`) that mounts the `rclone_rd` volumes with `vfs_cache_mode="off"`. This guarantees that heavy `ffprobe` reads do not trigger large chunk downloads to the main stack's cache on your SSD, avoiding stutter and freezing. It stores successful runs in `/root/.config/xbvr/realdebrid-keepalive-state.tsv`, which is persisted through the XBVR config volume. By default, files with a successful `ffprobe` in the last 5 days are skipped. The progress and final summary show total files, skipped files, eligible files, completed files, successes, errors, and timeouts. Without `-T`, it keeps the output quiet aside from progress, errors, and the final summary. `-P` changes the parallel worker count, the default remains `10`, and `-ALL` bypasses the 5-day skip filter. Closing the terminal or pressing `Ctrl+C` cleanly tears down the temporary container.
 
 The "Check missing files" tool (`M`) queries the database and runs parallel batches (50 concurrent files at a time) to dramatically speed up existence checks over remote mounts.
 
@@ -162,10 +166,10 @@ docker compose --env-file .env down -v
 |-----------|---------|
 | `data/mariadb/` | MariaDB database files |
 | `data/xbvr/` | XBVR config and metadata |
-| `data/rclone/config/` | Linux rclone plugin config |
-| `data/rclone/cache/` | Linux rclone plugin cache |
+| `data/rclone/config/` | Linux rclone_rd plugin config |
+| `data/rclone/cache/` | Linux rclone_rd plugin cache |
 
-The media mounts (Real-Debrid, Google Drive, Arp) are Docker-managed volumes via the rclone plugin, not bind mounts.
+The media mounts (Real-Debrid, Google Drive, Arp) are Docker-managed volumes via the rclone_rd plugin, not bind mounts.
 
 ## Media Mounts
 
@@ -189,7 +193,7 @@ After migrating `data/xbvr` from another system, binaries may lose execute bits:
 chmod 755 data/xbvr/bin/ffprobe data/xbvr/bin/ffmpeg
 ```
 
-### rclone plugin install fails
+### rclone_rd plugin install fails
 
 Ensure `fuse` or `fuse3` is installed on the Linux host.
 
@@ -214,7 +218,7 @@ INSERT INTO kvs (`key`, value) VALUES (
 | Option | What it removes | What it keeps |
 |--------|-----------------|---------------|
 | 4 (Stop) | Containers, Docker volumes | Bind-mounted data directories |
-| 6 (Partial) | Containers, volumes, rclone plugin | Database data, XBVR config, rclone config/cache |
+| 6 (Partial) | Containers, volumes, rclone_rd plugin | Database data, XBVR config, rclone config/cache |
 | 7 (Full) | Everything | Linux rclone config only |
 
 ## Notes
