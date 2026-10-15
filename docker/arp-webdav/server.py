@@ -55,14 +55,22 @@ def load_data():
         # Extract filename from URL
         parsed_vid = urllib.parse.urlparse(vid_url)
         vid_filename = os.path.basename(parsed_vid.path) or "video.mp4"
-        folder[vid_filename] = vid_url
         
         if mask_url:
+            folder[vid_filename] = vid_url
             if vid_filename.lower().endswith('.mp4'):
                 mask_filename = vid_filename[:-4] + '_XALPHA.mp4'
             else:
                 mask_filename = vid_filename + '_XALPHA.mp4'
             folder[mask_filename] = mask_url
+        else:
+            if '_180x180_3dh' in vid_filename:
+                vid_filename = vid_filename.replace('_180x180_3dh', '_FISHEYE190_alpha')
+            elif vid_filename.lower().endswith('.mp4'):
+                vid_filename = vid_filename[:-4] + '_FISHEYE190_alpha.mp4'
+            else:
+                vid_filename = vid_filename + '_FISHEYE190_alpha'
+            folder[vid_filename] = vid_url
             
         tree[title] = folder
     return tree
