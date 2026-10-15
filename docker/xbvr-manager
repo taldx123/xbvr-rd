@@ -1304,6 +1304,33 @@ download_arp_cuepoints() {
   pause_for_user
 }
 
+manage_compilations() {
+  local mode="${1:-}"
+  confirm_docker_running || {
+    pause_for_user
+    return
+  }
+
+  local db_user db_pass db_name
+  db_user="$(read_env_value "MARIADB_USER")"
+  db_pass="$(read_env_value "MARIADB_PASSWORD")"
+  db_name="$(read_env_value "MARIADB_DATABASE")"
+
+  if [[ -z "${db_user}" || -z "${db_pass}" || -z "${db_name}" ]]; then
+    write_line "${COLOR_RED}" "ERROR: Database credentials not found in ${ENV_FILE}."
+    pause_for_user
+    return
+  fi
+
+  if command -v python3 >/dev/null 2>&1; then
+    python3 "${DOCKER_DIR}/manage_compilations.py" "${db_user}" "${db_pass}" "${db_name}" "${mode}"
+  else
+    write_line "${COLOR_RED}" "ERROR: python3 is not installed on the host. Please install python3 to use this feature."
+  fi
+
+  pause_for_user
+}
+
 invoke_backup() {
   local target="$1"
   confirm_docker_running || {
@@ -1472,6 +1499,47 @@ cuepoints_menu() {
   done
 }
 
+compilations_menu() {
+  while true; do
+    write_header
+    write_line "${COLOR_DARKCYAN}" "  COMPILATIONS MENU"
+    printf '%s\n' "  [1] Dry Run: Scan & Preview untagged compilations"
+    printf '%s\n' "  [2] Auto-Tag High-Confidence compilations (Tier 1)"
+    printf '%s\n' "  [3] Interactive Review & Tag (Tier 1 + Tier 2)"
+    printf '%s\n' "  [4] Refresh Compilations Tag Group (propagate scene tags)"
+    printf '%s\n' "  [B] Back"
+    printf '\n'
+
+    read -r -p "Choose an option: " comp_choice
+
+    case "${comp_choice^^}" in
+      1)
+        manage_compilations "--dry-run"
+        return
+        ;;
+      2)
+        manage_compilations "--auto"
+        return
+        ;;
+      3)
+        manage_compilations "--interactive"
+        return
+        ;;
+      4)
+        manage_compilations "--refresh"
+        return
+        ;;
+      B)
+        return
+        ;;
+      *)
+        write_line "${COLOR_RED}" "Invalid option. Please try again."
+        sleep 1
+        ;;
+    esac
+  done
+}
+
 while true; do
   write_header
 
@@ -1493,6 +1561,7 @@ while true; do
   printf '\n'
   write_line "${COLOR_DARKCYAN}" "  MAINTENANCE"
   printf '%s\n' "  [B] Backup Menu (Database / Full)"
+  printf '%s\n' "  [T] Compilations Menu (Identify & Tag compilation scenes)"
   printf '%s\n' "  [6] Partial cleanup (remove plugin + clear cache)"
   printf '%s\n' "  [7] Full cleanup (remove everything including app data)"
   printf '\n'
@@ -1518,6 +1587,7 @@ while true; do
     8) show_logs ;;
     9) restart_menu ;;
     B) backup_menu ;;
+    T) compilations_menu ;;
     O) open_xbvr_brave_incognito ;;
     Q)
       write_line "${COLOR_CYAN}" "Bye!"

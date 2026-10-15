@@ -13,6 +13,7 @@ This is a Docker-based deployment configuration repository for XBVR. The applica
 │   ├── download_arp_cuepoints.py
 │   ├── download_cuepoints.py
 │   ├── download_slr_cuepoints.py
+│   ├── manage_compilations.py
 │   ├── mariadb/my.cnf
 │   └── xbvr-manager
 ├── data/             # Persistent data (gitignored)
@@ -68,6 +69,7 @@ chmod +x docker/xbvr-manager
 | 9 | Restart menu (full stack or XBVR only) |
 | O | Open XBVR in Brave incognito |
 | B | Backup Menu (Database / Full) |
+| T | Compilations Menu (Identify & Tag compilation scenes) |
 | 6 | Partial cleanup (remove plugin + clear cache) |
 | 7 | Full cleanup (remove everything including app data) |
 | Q | Quit |

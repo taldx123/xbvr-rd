@@ -13,6 +13,7 @@ Docker-based XBVR deployment with MariaDB, XBVR application, and Real-Debrid, Go
 │   ├── download_arp_cuepoints.py
 │   ├── download_cuepoints.py
 │   ├── download_slr_cuepoints.py
+│   ├── manage_compilations.py
 │   ├── mariadb/my.cnf
 │   └── xbvr-manager
 ├── data/
@@ -136,6 +137,7 @@ Select option `0` for full setup (creates directories, installs rclone_rd plugin
 | 9 | Open the restart submenu for full stack or XBVR-only restart |
 | `O` | Open XBVR in a Brave/Chromium incognito window |
 | `B` | Open the backup submenu to backup MariaDB and/or XBVR data |
+| `T` | Open the compilations submenu to scan, preview, and tag compilation scenes |
 | 6 | Partial cleanup (remove plugin + clear cache) |
 | 7 | Full cleanup (remove everything including app data) |
 | `Q` | Quit the helper |
@@ -145,6 +147,8 @@ The keepalive scan temporarily spawns a background container (`xbvr-keepalive-wo
 The "Check missing files" tool (`M`) queries the database and runs parallel batches (50 concurrent files at a time) to dramatically speed up existence checks over remote mounts.
 
 The SexLikeReal cuepoints option stores successfully resolved studio IDs in `/root/.config/xbvr/slr-studio-cache.tsv` to avoid duplicate API calls. Cache entries are valid for 5 days. Both the keepalive scan and the SLR cuepoints tool use multi-threaded batch fetching with a default maximum of 10 concurrent parallel workers.
+
+The "Compilations Menu" (`T`) scans your library for untagged compilation scenes using high-confidence lexical matching (titles, franchise series volumes, synopses, filenames), cuepoint density, and high-cast heuristics. It supports a non-destructive dry-run preview, auto-tagging Tier-1 matches, interactive confirmation for review candidates, and synchronizing the `tag group:compilations` umbrella tag. It writes to the `actions` table so applied tags persist across XBVR scraper updates.
 
 ## Access
 
