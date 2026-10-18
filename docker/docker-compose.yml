@@ -56,6 +56,36 @@ services:
       - xbvr-net
 
   # -----------------------------------------------------------
+  # Gluetun – ProtonVPN Client (HTTP Proxy for XBVR scraping)
+  # -----------------------------------------------------------
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: xbvr-vpn
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      TZ: ${TZ}
+      VPN_SERVICE_PROVIDER: protonvpn
+      VPN_TYPE: wireguard
+      WIREGUARD_PRIVATE_KEY: ${PROTON_WG_PRIVATE_KEY}
+      WIREGUARD_ADDRESSES: "10.2.0.2/32"
+      SERVER_COUNTRIES: ${PROTON_SERVER_COUNTRIES:-Netherlands}
+      STREAM_ONLY: "on"
+      HTTPPROXY: "on"
+      HTTPPROXY_LISTENING_ADDRESS: ":8888"
+    restart: unless-stopped
+    networks:
+      - xbvr-net
+    healthcheck:
+      test: ["CMD", "/gluetun-entrypoint", "healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  # -----------------------------------------------------------
   # XBVR – main application
   # -----------------------------------------------------------
   xbvr:
@@ -70,6 +100,9 @@ services:
       DATABASE_URL: "mysql://${MARIADB_USER}:${MARIADB_PASSWORD}@mariadb:3306/${MARIADB_DATABASE}?charset=utf8mb4&collation=utf8mb4_unicode_ci&parseTime=True&loc=Local"
       DB_CONNECTION_POOL_SIZE: "${DB_CONNECTION_POOL_SIZE}"
       CONCURRENT_SCRAPERS: "${CONCURRENT_SCRAPERS}"
+      HTTP_PROXY: "${XBVR_PROXY_URL:-}"
+      HTTPS_PROXY: "${XBVR_PROXY_URL:-}"
+      NO_PROXY: "localhost,127.0.0.1,0.0.0.0,::1,::,mariadb,arp-webdav"
       DEBUG: true
       # GIN_MODE: debug
       # DATABASE_DEBUG: true

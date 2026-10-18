@@ -1,6 +1,6 @@
 # XBVR Stack
 
-Docker-based XBVR deployment with MariaDB, XBVR application, and Real-Debrid, Google Drive, and Arp mounting via the `rclone_rd` Docker volume plugin.
+Docker-based XBVR deployment with MariaDB, XBVR application, ProtonVPN scraper proxy (`gluetun`), and Real-Debrid, Google Drive, and Arp mounting via the `rclone_rd` Docker volume plugin.
 
 ## Project Structure
 
@@ -32,6 +32,7 @@ This repository now keeps the launcher and environment file in `docker/`.
 - Docker with `docker compose` plugin
 - Real-Debrid API key
 - Configured Google Drive remote via `rclone config` saved in `data/rclone/config/rclone.conf`
+- ProtonVPN account (WireGuard private key) if using the built-in VPN scraper proxy
 
 ### Linux
 
@@ -62,6 +63,11 @@ DB_CONNECTION_POOL_SIZE=300
 CONCURRENT_SCRAPERS=6
 MARIADB_PORT=3306
 
+# --- ProtonVPN (Gluetun Proxy for XBVR Scrapers) -----------
+PROTON_WG_PRIVATE_KEY=your_wireguard_private_key_here
+PROTON_SERVER_COUNTRIES=Netherlands
+XBVR_PROXY_URL=http://gluetun:8888
+
 # --- Rclone Plugin -----------------------------------------
 RCLONE_PLUGIN_VERSION=amd64
 
@@ -86,6 +92,9 @@ ARP_LINKS_FILE=/path/to/your/unauthenticated_links.json
 | `MARIADB_PASSWORD` | Database password | `changeme` |
 | `MARIADB_DATABASE` | Database name | `xbvr` |
 | `XBVR_VERSION` | XBVR image version | `latest` |
+| `PROTON_WG_PRIVATE_KEY` | ProtonVPN WireGuard `PrivateKey` for `xbvr-vpn` (`gluetun`) | |
+| `PROTON_SERVER_COUNTRIES` | ProtonVPN target country | `Netherlands` |
+| `XBVR_PROXY_URL` | Outbound HTTP/HTTPS proxy URL for XBVR (`http://gluetun:8888` or empty to disable) | `http://gluetun:8888` |
 | `RCLONE_PLUGIN_VERSION` | Rclone plugin image version | `amd64` |
 | `XBVR_PORT` | Host port for XBVR web UI | `9999` |
 | `DB_CONNECTION_POOL_SIZE` | MariaDB connection pool size | `300` |
@@ -104,6 +113,7 @@ Edit `docker/.env`.
 At minimum, set:
 - `RD_API_KEY` with your Real-Debrid API key
 - `MARIADB_PASSWORD` to a secure password
+- `PROTON_WG_PRIVATE_KEY` with your ProtonVPN WireGuard private key (or leave `XBVR_PROXY_URL=` empty to use direct OS connection)
 - A valid `rclone.conf` in `data/rclone/config/` for Google Drive
 
 ### 2. Run the Launcher
@@ -133,6 +143,7 @@ Select option `0` for full setup (creates directories, installs rclone_rd plugin
 | `A --ROOT /path` | Target a specific custom directory instead of the menu defaults |
 | `M` | Check files table for missing physical files in the XBVR container (runs in parallel batches) |
 | `C` | Cuepoints Menu (timestamp.trade, SexLikeReal, ARP) |
+| `V` | VPN Menu (ProtonVPN status/IP check, rotate IP, switch country without restarting XBVR, or enable/disable VPN) |
 | 8 | View live logs |
 | 9 | Open the restart submenu for full stack or XBVR-only restart |
 | `O` | Open XBVR in a Brave/Chromium incognito window |
@@ -147,6 +158,8 @@ The keepalive scan temporarily spawns a background container (`xbvr-keepalive-wo
 The "Check missing files" tool (`M`) queries the database and runs parallel batches (50 concurrent files at a time) to dramatically speed up existence checks over remote mounts.
 
 The SexLikeReal cuepoints option stores successfully resolved studio IDs in `/root/.config/xbvr/slr-studio-cache.tsv` to avoid duplicate API calls. Cache entries are valid for 5 days. Both the keepalive scan and the SLR cuepoints tool use multi-threaded batch fetching with a default maximum of 10 concurrent parallel workers.
+
+The "VPN Menu" (`V`) manages the `xbvr-vpn` (`qmcgaw/gluetun`) container, which connects to ProtonVPN via WireGuard and exposes an internal HTTP proxy (`http://gluetun:8888`) exclusively for XBVR's outbound scraping traffic. Video streaming to local VR headsets (HereSphere/DeoVR) and `rclone_rd` cloud downloads remain on your direct LAN/host connection at full speed. Rotating IPs or switching VPN countries from this menu recreates only `xbvr-vpn` with zero XBVR downtime.
 
 The "Compilations Menu" (`T`) scans your library for untagged compilation scenes using high-confidence lexical matching (titles, franchise series volumes, synopses, filenames), cuepoint density, and high-cast heuristics. It supports a non-destructive dry-run preview, auto-tagging Tier-1 matches, interactive confirmation for review candidates, and synchronizing the `tag group:compilations` umbrella tag. It writes to the `actions` table so applied tags persist across XBVR scraper updates.
 

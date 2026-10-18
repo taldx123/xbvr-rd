@@ -294,6 +294,19 @@ wait_for_xbvr_healthy() {
   )
 }
 
+compose_up_stack() {
+  local proxy_url
+  proxy_url="$(read_env_value "XBVR_PROXY_URL")"
+  (
+    cd "${DOCKER_DIR}" || exit 1
+    if [[ -n "${proxy_url}" ]]; then
+      docker compose --env-file "${ENV_FILE}" up -d --wait --wait-timeout 180
+    else
+      docker compose --env-file "${ENV_FILE}" up -d --wait --wait-timeout 180 mariadb arp-webdav xbvr
+    fi
+  )
+}
+
 start_stack() {
   confirm_docker_running || {
     pause_for_user
@@ -315,10 +328,7 @@ start_stack() {
   printf '\n'
   write_line "${COLOR_YELLOW}" "Starting XBVR stack (MariaDB + XBVR)..."
   write_line "${COLOR_DARKGRAY}" "  Real-Debrid volume will be created by docker compose..."
-  (
-    cd "${DOCKER_DIR}" || exit 1
-    docker compose --env-file "${ENV_FILE}" up -d --wait --wait-timeout 180
-  )
+  compose_up_stack
   local status=$?
   if [[ ${status} -eq 0 ]]; then
     printf '\n'
@@ -720,10 +730,7 @@ run_full_setup() {
     return 1
   fi
 
-  (
-    cd "${DOCKER_DIR}" || exit 1
-    docker compose --env-file "${ENV_FILE}" up -d --wait --wait-timeout 180
-  )
+  compose_up_stack
   local status=$?
   if [[ ${status} -eq 0 ]]; then
     printf '\n'
@@ -1379,10 +1386,7 @@ invoke_backup() {
 
   if [[ "${was_running}" == "true" ]]; then
     write_line "${COLOR_YELLOW}" "Restarting stack..."
-    (
-      cd "${DOCKER_DIR}" || exit 1
-      docker compose --env-file "${ENV_FILE}" up -d --wait --wait-timeout 180
-    ) >/dev/null 2>&1
+    compose_up_stack >/dev/null 2>&1
     write_line "${COLOR_GREEN}" "OK: Stack restarted."
   fi
 
@@ -1540,6 +1544,233 @@ compilations_menu() {
   done
 }
 
+write_env_value() {
+  local key="$1"
+  local val="$2"
+  [[ -f "${ENV_FILE}" ]] || return 1
+
+  if grep -qE "^[[:space:]]*${key}[[:space:]]*=" "${ENV_FILE}"; then
+    sed -i "s|^[[:space:]]*${key}[[:space:]]*=.*|${key}=${val}|" "${ENV_FILE}"
+  else
+    printf '\n%s=%s\n' "${key}" "${val}" >> "${ENV_FILE}"
+  fi
+}
+
+is_vpn_running() {
+  local state
+  state="$(docker inspect -f '{{.State.Running}}' xbvr-vpn 2>/dev/null || true)"
+  [[ "${state}" == "true" ]]
+}
+
+wait_for_vpn_healthy() {
+  local max_wait=45
+  local elapsed=0
+  printf '%s' "Waiting for xbvr-vpn to connect..."
+  while [[ ${elapsed} -lt ${max_wait} ]]; do
+    local health
+    health="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' xbvr-vpn 2>/dev/null || true)"
+    if [[ "${health}" == "healthy" ]]; then
+      printf ' connected!\n'
+      return 0
+    fi
+    sleep 1
+    ((elapsed++))
+    printf '.'
+  done
+  printf ' timed out!\n'
+  return 1
+}
+
+print_vpn_status() {
+  local proxy_url country vpn_state xbvr_proxy ip_info
+  proxy_url="$(read_env_value "XBVR_PROXY_URL")"
+  country="$(read_env_value "PROTON_SERVER_COUNTRIES")"
+  country="${country:-Netherlands}"
+
+  if is_vpn_running; then
+    vpn_state="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}running{{end}}' xbvr-vpn 2>/dev/null || true)"
+  else
+    vpn_state="stopped"
+  fi
+
+  if is_xbvr_running; then
+    xbvr_proxy="$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' xbvr 2>/dev/null | grep -m1 '^HTTP_PROXY=' | cut -d= -f2- || true)"
+  else
+    xbvr_proxy="${proxy_url}"
+  fi
+
+  if [[ -n "${xbvr_proxy}" && "${vpn_state}" == "healthy" ]]; then
+    write_line "${COLOR_GREEN}" "  Mode:       VPN ENABLED (Scrapers routed via ProtonVPN)"
+  elif [[ -z "${xbvr_proxy}" ]]; then
+    write_line "${COLOR_YELLOW}" "  Mode:       VPN DISABLED (Using direct OS connection)"
+  else
+    write_line "${COLOR_RED}" "  Mode:       VPN CONFIGURED (${xbvr_proxy}), but xbvr-vpn is ${vpn_state}"
+  fi
+
+  write_line "${COLOR_DARKGRAY}" "  Container:  xbvr-vpn (${vpn_state})"
+  write_line "${COLOR_DARKGRAY}" "  Country:    ${country}"
+
+  if is_xbvr_running; then
+    ip_info="$(docker exec xbvr python3 -c "import urllib.request, json; d=json.loads(urllib.request.urlopen('https://ipinfo.io/json', timeout=5).read().decode()); print(f\"{d.get('ip','?')} ({d.get('city','?')}, {d.get('country','?')} - {d.get('org','?')})\")" 2>/dev/null || true)"
+    if [[ -n "${ip_info}" ]]; then
+      write_line "${COLOR_CYAN}" "  XBVR IP:    ${ip_info}"
+    else
+      write_line "${COLOR_RED}" "  XBVR IP:    Unable to reach ipinfo.io"
+    fi
+  fi
+}
+
+vpn_rotate_ip() {
+  confirm_docker_running || {
+    pause_for_user
+    return
+  }
+
+  write_line "${COLOR_YELLOW}" "Reconnecting xbvr-vpn to get a new ProtonVPN server (XBVR will NOT restart)..."
+  (
+    cd "${DOCKER_DIR}" || exit 1
+    docker compose --env-file "${ENV_FILE}" up -d --force-recreate --no-deps gluetun
+  )
+  if wait_for_vpn_healthy; then
+    write_line "${COLOR_GREEN}" "OK: VPN reconnected."
+  else
+    write_line "${COLOR_RED}" "ERROR: VPN did not become healthy in time. Check logs with option 8."
+  fi
+  pause_for_user
+}
+
+vpn_change_country() {
+  confirm_docker_running || {
+    pause_for_user
+    return
+  }
+
+  printf '\n'
+  write_line "${COLOR_DARKCYAN}" "  Select ProtonVPN Country:"
+  printf '%s\n' "  [1] Netherlands (default)"
+  printf '%s\n' "  [2] United States"
+  printf '%s\n' "  [3] Switzerland"
+  printf '%s\n' "  [4] Japan"
+  printf '%s\n' "  [5] Germany"
+  printf '%s\n' "  [6] United Kingdom"
+  printf '%s\n' "  [7] Custom country name"
+  printf '%s\n' "  [C] Cancel"
+  printf '\n'
+
+  local c_choice new_country=""
+  read -r -p "Choose country: " c_choice
+  case "${c_choice^^}" in
+    1) new_country="Netherlands" ;;
+    2) new_country="United States" ;;
+    3) new_country="Switzerland" ;;
+    4) new_country="Japan" ;;
+    5) new_country="Germany" ;;
+    6) new_country="United Kingdom" ;;
+    7)
+      read -r -p "Enter country name (e.g. Canada, France, Brazil): " new_country
+      ;;
+    C) return ;;
+    *)
+      write_line "${COLOR_RED}" "Invalid selection."
+      sleep 1
+      return
+      ;;
+  esac
+
+  [[ -n "${new_country}" ]] || return
+
+  write_env_value "PROTON_SERVER_COUNTRIES" "${new_country}"
+  write_line "${COLOR_YELLOW}" "Switching ProtonVPN country to '${new_country}' (XBVR will NOT restart)..."
+  (
+    cd "${DOCKER_DIR}" || exit 1
+    docker compose --env-file "${ENV_FILE}" up -d --force-recreate --no-deps gluetun
+  )
+  if wait_for_vpn_healthy; then
+    write_line "${COLOR_GREEN}" "OK: Connected to ${new_country}."
+  else
+    write_line "${COLOR_RED}" "ERROR: VPN did not become healthy in time."
+  fi
+  pause_for_user
+}
+
+vpn_disable() {
+  confirm_docker_running || {
+    pause_for_user
+    return
+  }
+
+  write_env_value "XBVR_PROXY_URL" ""
+  write_line "${COLOR_YELLOW}" "Disabling VPN proxy on XBVR and stopping xbvr-vpn (volumes & DB stay untouched)..."
+  (
+    cd "${DOCKER_DIR}" || exit 1
+    if is_xbvr_running; then
+      docker compose --env-file "${ENV_FILE}" up -d --no-deps xbvr
+    fi
+    docker compose --env-file "${ENV_FILE}" stop gluetun >/dev/null 2>&1 || true
+    docker compose --env-file "${ENV_FILE}" rm -f gluetun >/dev/null 2>&1 || true
+  )
+  write_line "${COLOR_GREEN}" "OK: VPN disabled. XBVR is now using your direct OS connection."
+  pause_for_user
+}
+
+vpn_enable() {
+  confirm_docker_running || {
+    pause_for_user
+    return
+  }
+
+  write_env_value "XBVR_PROXY_URL" "http://gluetun:8888"
+  write_line "${COLOR_YELLOW}" "Starting xbvr-vpn and enabling VPN proxy on XBVR (volumes & DB stay untouched)..."
+  (
+    cd "${DOCKER_DIR}" || exit 1
+    docker compose --env-file "${ENV_FILE}" up -d --no-deps gluetun
+  )
+  if wait_for_vpn_healthy; then
+    (
+      cd "${DOCKER_DIR}" || exit 1
+      if is_xbvr_running; then
+        docker compose --env-file "${ENV_FILE}" up -d --no-deps xbvr
+      fi
+    )
+    write_line "${COLOR_GREEN}" "OK: VPN enabled. XBVR scrapers are now routed via ProtonVPN."
+  else
+    write_line "${COLOR_RED}" "ERROR: xbvr-vpn failed to connect."
+  fi
+  pause_for_user
+}
+
+vpn_menu() {
+  while true; do
+    write_header
+    write_line "${COLOR_DARKCYAN}" "  VPN MENU (ProtonVPN / Gluetun)"
+    print_vpn_status
+    printf '\n'
+    printf '%s\n' "  [1] Reconnect / Rotate IP (same country, no XBVR restart)"
+    printf '%s\n' "  [2] Change VPN Country (no XBVR restart)"
+    printf '%s\n' "  [3] Disable VPN (use direct OS connection + stop xbvr-vpn)"
+    printf '%s\n' "  [4] Enable VPN (start xbvr-vpn + route XBVR via ProtonVPN)"
+    printf '%s\n' "  [R] Refresh Status / IP"
+    printf '%s\n' "  [B] Back"
+    printf '\n'
+
+    local vpn_choice
+    read -r -p "Choose an option: " vpn_choice
+
+    case "${vpn_choice^^}" in
+      1) vpn_rotate_ip ;;
+      2) vpn_change_country ;;
+      3) vpn_disable ;;
+      4) vpn_enable ;;
+      R) continue ;;
+      B) return ;;
+      *)
+        write_line "${COLOR_RED}" "Invalid option. Please try again."
+        sleep 1
+        ;;
+    esac
+  done
+}
+
 while true; do
   write_header
 
@@ -1555,6 +1786,7 @@ while true; do
   printf '%s\n' "  [A] Access files with ffprobe (Keepalive Menu)  (use '-T', '-P N', or '-ALL')"
   printf '%s\n' "  [M] Check files table for missing physical files"
   printf '%s\n' "  [C] Cuepoints Menu (timestamp.trade, SLR, ARP)"
+  printf '%s\n' "  [V] VPN Menu (ProtonVPN status, change country, enable/disable)"
   printf '%s\n' "  [8] View live logs"
   printf '%s\n' "  [9] Restart menu  (full stack or XBVR only)"
   printf '%s\n' "  [O] Open XBVR in Brave incognito"
@@ -1582,6 +1814,7 @@ while true; do
     A) keepalive_menu "${choice_parts[@]:1}" ;;
     M) check_missing_files ;;
     C) cuepoints_menu ;;
+    V) vpn_menu ;;
     6) invoke_partial_cleanup ;;
     7) invoke_cleanup ;;
     8) show_logs ;;

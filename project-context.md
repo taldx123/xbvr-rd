@@ -20,6 +20,7 @@ _This file contains critical rules and patterns that AI agents must follow when 
 - **Docker & Docker Compose**: Standard host requirements.
 - **MariaDB**: `mariadb:lts`
 - **XBVR**: `ghcr.io/taldx123/xbvr:${XBVR_VERSION:-latest}`
+- **Gluetun (ProtonVPN Proxy)**: `qmcgaw/gluetun:latest` (`xbvr-vpn`, WireGuard client exposing internal HTTP proxy `:8888` for XBVR scraping)
 - **Python**: `python3` (specifically used for host helper scripts like `download_cuepoints.py`, `download_slr_cuepoints.py`, `download_arp_cuepoints.py`, and `manage_compilations.py`)
 - **Bash Scripting**: `#!/usr/bin/env bash` using strict error handling.
 - **Rclone Plugin**: `ghcr.io/taldx123/docker-volume-rclone_rd:${RCLONE_PLUGIN_VERSION:-amd64}` (critical dependency for Real-Debrid, Google Drive, and Arp mounts)
@@ -84,6 +85,7 @@ _This file contains critical rules and patterns that AI agents must follow when 
 **Edge Cases:**
 - **Database Migration Credentials:** When migrating `data/mariadb` from another machine, the users are not recreated. The `MARIADB_USER` and `MARIADB_PASSWORD` in `.env` must exactly match the existing migrated database users, or the service will remain unhealthy.
 - **Binary Permissions:** If migrating the `data/xbvr` folder, execution bits for bundled binaries might be lost. If `ffmpeg` or `ffprobe` fail with permission denied, explicitly `chmod 755` those binaries in `data/xbvr/bin/`.
+- **XBVR Proxy `NO_PROXY` Requirement:** When routing XBVR outbound traffic via `HTTP_PROXY` / `HTTPS_PROXY` (`http://gluetun:8888`), `NO_PROXY` MUST include `0.0.0.0,127.0.0.1,localhost,::1,::` because XBVR's internal WAMP logger connects to `ws://0.0.0.0:9998` and will panic with a nil pointer dereference if routed through an external proxy.
 
 ---
 
@@ -103,4 +105,4 @@ _This file contains critical rules and patterns that AI agents must follow when 
 - Review quarterly for outdated rules
 - Remove rules that become obvious over time
 
-Last Updated: 2026-10-03
+Last Updated: 2026-10-18

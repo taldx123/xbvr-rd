@@ -65,6 +65,7 @@ chmod +x docker/xbvr-manager
 | A | Access files with ffprobe (Keepalive Menu, runs in a temp disabled-cache container) |
 | M | Check files table for missing physical files (runs in parallel batches) |
 | C | Cuepoints Menu (timestamp.trade, SexLikeReal, ARP) |
+| V | VPN Menu (ProtonVPN status, rotate IP, change country, enable/disable) |
 | 8 | View live logs |
 | 9 | Restart menu (full stack or XBVR only) |
 | O | Open XBVR in Brave incognito |
@@ -176,8 +177,13 @@ chmod 755 data/xbvr/bin/ffprobe data/xbvr/bin/ffmpeg
 
 Ensure `fuse` or `fuse3` is installed on the Linux host.
 
+### XBVR crashes on startup when HTTP_PROXY is set
+
+XBVR connects internally to its own WAMP router via `ws://0.0.0.0:9998`. Ensure `0.0.0.0`, `127.0.0.1`, `localhost`, `::1`, and `::` are included in `NO_PROXY` on the `xbvr` service so internal WebSocket connections bypass the `gluetun` HTTP proxy.
+
 ## Notes
 
 - The repo-root `.env` is legacy; always use `docker/.env`
 - This repository is configuration-only; application code is in the XBVR repository
 - Real-Debrid, Google Drive, and Arp mounts require the `rclone_rd` Docker plugin installed on the host
+- Outbound XBVR scraper traffic is routed through `gluetun` (`xbvr-vpn`) via `HTTP_PROXY`/`HTTPS_PROXY` (`XBVR_PROXY_URL`), while local video streaming and `rclone_rd` mounts bypass the VPN
