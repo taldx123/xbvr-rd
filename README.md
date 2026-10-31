@@ -177,6 +177,29 @@ The "Compilations Menu" (`T`) scans your library for untagged compilation scenes
 - XBVR is available at `http://localhost:9999` (default port).
 - Jackett is available at `http://localhost:9117` (default port).
 
+### Jackett & Tracker Search Setup
+
+XBVR integrates with `xbvr-jackett` (`lscr.io/linuxserver/jackett:latest`) to search `pornolab.net` directly from scene cards and the scene details modal:
+
+1. **Open Jackett Web UI:** Navigate to `http://localhost:9117`.
+2. **Add & Configure Indexer:**
+   - Click **+ Add Indexer**, search for `pornolab`, and click the wrench (**Configure**) icon.
+   - Enter your tracker **Username** and **Password**, set **Sort requested from site** to `seeders`, and click **Okay**.
+   - *(Note: Jackett's configuration and session cookies are persisted in `data/jackett/Jackett/Indexers/pornolab.json`, and its outbound traffic is routed through `gluetun` via `XBVR_PROXY_URL`.)*
+3. **Configure `docker/.env`:**
+   - Copy the **API Key** shown in the top-right corner of the Jackett Web UI into `docker/.env`:
+     ```env
+     JACKETT_PORT=9117
+     JACKETT_URL=http://jackett:9117
+     JACKETT_API_KEY=your_jackett_api_key_here
+     ```
+   - Recreate the `xbvr` container (`docker compose --env-file .env up -d xbvr`) if `JACKETT_API_KEY` was changed.
+4. **Using Tracker Search in XBVR:**
+   - Each scene card and details view has two search buttons:
+     - **Magnet icon (`Search BTDIG`):** Opens BTDigg search in a modal.
+     - **Flask icon (`Search PornoLab`):** Queries Jackett's `pornolab` indexer and displays results in a sortable table.
+   - Clicking **Magnet** on a result row fetches the `.torrent` via Jackett, extracts the `info_hash` and `info.name` to render a native `<a href="magnet:?xt=urn:btih:...">` link alongside a **`DMM🧲`** button (for `debridmediamanager.com`), and caches the resolved magnet in `data/xbvr/pornolab_magnets.json` so subsequent searches never re-download the `.torrent` file (preserving PornoLab's 5/day download quota for new accounts).
+
 ## Manual Docker Commands
 
 Run from the `docker/` directory:
