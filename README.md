@@ -184,7 +184,7 @@ XBVR integrates with `xbvr-jackett` (`lscr.io/linuxserver/jackett:latest`) to se
 1. **Open Jackett Web UI:** Navigate to `http://localhost:9117`.
 2. **Add & Configure Indexer:**
    - Click **+ Add Indexer**, search for `pornolab`, and click the wrench (**Configure**) icon.
-   - Enter your tracker **Username** and **Password**, set **Sort requested from site** to `seeders`, and click **Okay**.
+   - Enter your tracker **Username** and **Password**, set **Sort requested from site** to `created` (`desc`), and click **Okay**.
    - *(Note: Jackett's configuration and session cookies are persisted in `data/jackett/Jackett/Indexers/pornolab.json`, and its outbound traffic is routed through `gluetun` via `XBVR_PROXY_URL`.)*
 3. **Configure `docker/.env`:**
    - Copy the **API Key** shown in the top-right corner of the Jackett Web UI into `docker/.env`:
