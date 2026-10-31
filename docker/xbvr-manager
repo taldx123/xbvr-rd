@@ -304,7 +304,7 @@ compose_up_stack() {
     if [[ -n "${proxy_url}" ]]; then
       docker compose --env-file "${ENV_FILE}" up -d --wait --wait-timeout 180
     else
-      docker compose --env-file "${ENV_FILE}" up -d --wait --wait-timeout 180 mariadb arp-webdav xbvr
+      docker compose --env-file "${ENV_FILE}" up -d --wait --wait-timeout 180 mariadb arp-webdav jackett xbvr
     fi
   )
 }
@@ -563,6 +563,7 @@ invoke_partial_cleanup() {
   write_line "${COLOR_GREEN}" "This will NOT touch:"
   write_line "${COLOR_GREEN}" "  - ${MARIADB_DATA_DIR}  (your database)"
   write_line "${COLOR_GREEN}" "  - ${XBVR_DATA_DIR}  (your XBVR config)"
+  write_line "${COLOR_GREEN}" "  - ${JACKETT_DATA_DIR}  (your Jackett config)"
   write_line "${COLOR_GREEN}" "  - ${RCLONE_CONFIG_DIR}  (your rclone config)"
   printf '\n'
   read -r -p "Type YES to proceed: " confirm
@@ -616,6 +617,7 @@ invoke_cleanup() {
   write_line "${COLOR_RED}" "  - Uninstall the rclone Docker plugin"
   write_line "${COLOR_RED}" "  - Delete ${MARIADB_DATA_DIR}  (all database files)"
   write_line "${COLOR_RED}" "  - Delete ${XBVR_DATA_DIR}  (all XBVR config and metadata)"
+  write_line "${COLOR_RED}" "  - Delete ${JACKETT_DATA_DIR}  (all Jackett config and indexers)"
   write_line "${COLOR_RED}" "  - Delete ${RCLONE_CACHE_DIR}  (plugin cache/state)"
   printf '\n'
   printf '%s\n' "  This cannot be undone. ${RCLONE_CONFIG_DIR} will be kept."
@@ -651,6 +653,14 @@ invoke_cleanup() {
   write_line "${COLOR_YELLOW}" "Deleting ${XBVR_DATA_DIR} ..."
   if [[ -d "${XBVR_DATA_DIR}" ]]; then
     rm -rf "${XBVR_DATA_DIR}"
+    write_line "${COLOR_GREEN}" "  Deleted."
+  else
+    write_line "${COLOR_DARKGRAY}" "  Already gone."
+  fi
+
+  write_line "${COLOR_YELLOW}" "Deleting ${JACKETT_DATA_DIR} ..."
+  if [[ -d "${JACKETT_DATA_DIR}" ]]; then
+    rm -rf "${JACKETT_DATA_DIR}"
     write_line "${COLOR_GREEN}" "  Deleted."
   else
     write_line "${COLOR_DARKGRAY}" "  Already gone."
@@ -1365,7 +1375,7 @@ invoke_backup() {
   mkdir -p "${current_backup_dir}"
 
   if [[ "${target}" == "all" ]]; then
-    write_line "${COLOR_YELLOW}" "Backing up MariaDB and XBVR data..."
+    write_line "${COLOR_YELLOW}" "Backing up MariaDB, XBVR, and Jackett data..."
     if ! cp -a "${MARIADB_DATA_DIR}" "${current_backup_dir}/mariadb" 2>/dev/null; then
       write_line "${COLOR_DARKGRAY}" "  Elevated permissions required. You may be prompted for sudo."
       sudo cp -a "${MARIADB_DATA_DIR}" "${current_backup_dir}/mariadb"
@@ -1374,6 +1384,12 @@ invoke_backup() {
     if ! cp -a "${XBVR_DATA_DIR}" "${current_backup_dir}/xbvr" 2>/dev/null; then
       sudo cp -a "${XBVR_DATA_DIR}" "${current_backup_dir}/xbvr"
       sudo chown -R "$(id -u):$(id -g)" "${current_backup_dir}/xbvr" 2>/dev/null || true
+    fi
+    if [[ -d "${JACKETT_DATA_DIR}" ]]; then
+      if ! cp -a "${JACKETT_DATA_DIR}" "${current_backup_dir}/jackett" 2>/dev/null; then
+        sudo cp -a "${JACKETT_DATA_DIR}" "${current_backup_dir}/jackett"
+        sudo chown -R "$(id -u):$(id -g)" "${current_backup_dir}/jackett" 2>/dev/null || true
+      fi
     fi
   elif [[ "${target}" == "db" ]]; then
     write_line "${COLOR_YELLOW}" "Backing up MariaDB data only..."
@@ -1400,7 +1416,7 @@ backup_menu() {
     write_header
     write_line "${COLOR_DARKCYAN}" "  BACKUP MENU"
     printf '%s\n' "  [1] Backup MariaDB only"
-    printf '%s\n' "  [2] Backup everything (MariaDB + XBVR data)"
+    printf '%s\n' "  [2] Backup everything (MariaDB + XBVR + Jackett data)"
     printf '%s\n' "  [B] Back"
     printf '\n'
 
@@ -1702,16 +1718,16 @@ vpn_disable() {
   }
 
   write_env_value "XBVR_PROXY_URL" ""
-  write_line "${COLOR_YELLOW}" "Disabling VPN proxy on XBVR and stopping xbvr-vpn (volumes & DB stay untouched)..."
+  write_line "${COLOR_YELLOW}" "Disabling VPN proxy on XBVR/Jackett and stopping xbvr-vpn (volumes & DB stay untouched)..."
   (
     cd "${DOCKER_DIR}" || exit 1
     if is_xbvr_running; then
-      docker compose --env-file "${ENV_FILE}" up -d --no-deps xbvr
+      docker compose --env-file "${ENV_FILE}" up -d --no-deps xbvr jackett
     fi
     docker compose --env-file "${ENV_FILE}" stop gluetun >/dev/null 2>&1 || true
     docker compose --env-file "${ENV_FILE}" rm -f gluetun >/dev/null 2>&1 || true
   )
-  write_line "${COLOR_GREEN}" "OK: VPN disabled. XBVR is now using your direct OS connection."
+  write_line "${COLOR_GREEN}" "OK: VPN disabled. XBVR and Jackett are now using your direct OS connection."
   pause_for_user
 }
 
@@ -1722,7 +1738,7 @@ vpn_enable() {
   }
 
   write_env_value "XBVR_PROXY_URL" "http://gluetun:8888"
-  write_line "${COLOR_YELLOW}" "Starting xbvr-vpn and enabling VPN proxy on XBVR (volumes & DB stay untouched)..."
+  write_line "${COLOR_YELLOW}" "Starting xbvr-vpn and enabling VPN proxy on XBVR/Jackett (volumes & DB stay untouched)..."
   (
     cd "${DOCKER_DIR}" || exit 1
     docker compose --env-file "${ENV_FILE}" up -d --no-deps gluetun
@@ -1731,10 +1747,10 @@ vpn_enable() {
     (
       cd "${DOCKER_DIR}" || exit 1
       if is_xbvr_running; then
-        docker compose --env-file "${ENV_FILE}" up -d --no-deps xbvr
+        docker compose --env-file "${ENV_FILE}" up -d --no-deps xbvr jackett
       fi
     )
-    write_line "${COLOR_GREEN}" "OK: VPN enabled. XBVR scrapers are now routed via ProtonVPN."
+    write_line "${COLOR_GREEN}" "OK: VPN enabled. XBVR and Jackett scrapers are now routed via ProtonVPN."
   else
     write_line "${COLOR_RED}" "ERROR: xbvr-vpn failed to connect."
   fi
