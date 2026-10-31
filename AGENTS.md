@@ -17,6 +17,7 @@ This is a Docker-based deployment configuration repository for XBVR. The applica
 │   ├── mariadb/my.cnf
 │   └── xbvr-manager
 ├── data/             # Persistent data (gitignored)
+│   ├── jackett/
 │   ├── mariadb/
 │   ├── xbvr/
 │   └── rclone/
@@ -187,3 +188,4 @@ XBVR connects internally to its own WAMP router via `ws://0.0.0.0:9998`. Ensure 
 - This repository is configuration-only; application code is in the XBVR repository
 - Real-Debrid, Google Drive, and Arp mounts require the `rclone_rd` Docker plugin installed on the host
 - Outbound XBVR scraper traffic is routed through `gluetun` (`xbvr-vpn`) via `HTTP_PROXY`/`HTTPS_PROXY` (`XBVR_PROXY_URL`), while local video streaming and `rclone_rd` mounts bypass the VPN
+- Tracker search in XBVR uses `jackett` (`xbvr-jackett` on port `9117`) via `JACKETT_URL` and `JACKETT_API_KEY` (with `jackett` included in `xbvr`'s `NO_PROXY`)

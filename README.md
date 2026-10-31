@@ -1,6 +1,6 @@
 # XBVR Stack
 
-Docker-based XBVR deployment with MariaDB, XBVR application, ProtonVPN scraper proxy (`gluetun`), and Real-Debrid, Google Drive, and Arp mounting via the `rclone_rd` Docker volume plugin.
+Docker-based XBVR deployment with MariaDB, XBVR application, ProtonVPN scraper proxy (`gluetun`), Jackett indexer proxy (`xbvr-jackett`), and Real-Debrid, Google Drive, and Arp mounting via the `rclone_rd` Docker volume plugin.
 
 ## Project Structure
 
@@ -17,6 +17,7 @@ Docker-based XBVR deployment with MariaDB, XBVR application, ProtonVPN scraper p
 │   ├── mariadb/my.cnf
 │   └── xbvr-manager
 ├── data/
+│   ├── jackett/
 │   ├── mariadb/
 │   ├── xbvr/
 │   └── rclone/
@@ -68,6 +69,11 @@ PROTON_WG_PRIVATE_KEY=your_wireguard_private_key_here
 PROTON_SERVER_COUNTRIES=Netherlands
 XBVR_PROXY_URL=http://gluetun:8888
 
+# --- Jackett / Tracker Search ------------------------------
+JACKETT_PORT=9117
+JACKETT_URL=http://jackett:9117
+JACKETT_API_KEY=your_jackett_api_key_here
+
 # --- Rclone Plugin -----------------------------------------
 RCLONE_PLUGIN_VERSION=amd64
 
@@ -95,6 +101,9 @@ ARP_LINKS_FILE=/path/to/your/unauthenticated_links.json
 | `PROTON_WG_PRIVATE_KEY` | ProtonVPN WireGuard `PrivateKey` for `xbvr-vpn` (`gluetun`) | |
 | `PROTON_SERVER_COUNTRIES` | ProtonVPN target country | `Netherlands` |
 | `XBVR_PROXY_URL` | Outbound HTTP/HTTPS proxy URL for XBVR (`http://gluetun:8888` or empty to disable) | `http://gluetun:8888` |
+| `JACKETT_PORT` | Host port for Jackett web UI | `9117` |
+| `JACKETT_URL` | Internal Jackett URL used by XBVR | `http://jackett:9117` |
+| `JACKETT_API_KEY` | Jackett API key used by XBVR for tracker search | |
 | `RCLONE_PLUGIN_VERSION` | Rclone plugin image version | `amd64` |
 | `XBVR_PORT` | Host port for XBVR web UI | `9999` |
 | `DB_CONNECTION_POOL_SIZE` | MariaDB connection pool size | `300` |
@@ -165,7 +174,8 @@ The "Compilations Menu" (`T`) scans your library for untagged compilation scenes
 
 ## Access
 
-XBVR is available at `http://localhost:9999` (default port).
+- XBVR is available at `http://localhost:9999` (default port).
+- Jackett is available at `http://localhost:9117` (default port).
 
 ## Manual Docker Commands
 
@@ -181,6 +191,7 @@ docker compose --env-file .env down -v
 
 | Directory | Purpose |
 |-----------|---------|
+| `data/jackett/` | Jackett indexer configuration and cache |
 | `data/mariadb/` | MariaDB database files |
 | `data/xbvr/` | XBVR config and metadata |
 | `data/rclone/config/` | Linux rclone_rd plugin config |
