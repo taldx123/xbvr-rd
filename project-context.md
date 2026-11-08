@@ -20,7 +20,7 @@ _This file contains critical rules and patterns that AI agents must follow when 
 - **Docker & Docker Compose**: Standard host requirements.
 - **MariaDB**: `mariadb:lts`
 - **XBVR**: `ghcr.io/taldx123/xbvr:${XBVR_VERSION:-latest}`
-- **Gluetun (ProtonVPN Proxy)**: `qmcgaw/gluetun:latest` (`xbvr-vpn`, WireGuard client exposing internal HTTP proxy `:8888` for XBVR scraping)
+- **Gluetun (ProtonVPN Proxy)**: `qmcgaw/gluetun:latest` (`xbvr-vpn`, WireGuard client with `WIREGUARD_MTU=1320`, plain in-tunnel DNS `10.2.0.1:53`, persisted `/gluetun` state in `data/gluetun/`, exposing internal HTTP proxy `:8888` for XBVR and Jackett scraping)
 - **Jackett (Tracker Indexer Proxy)**: `lscr.io/linuxserver/jackett:latest` (`xbvr-jackett`, port `9117`, routed via `gluetun` HTTP proxy and queried by XBVR via `JACKETT_URL` / `JACKETT_API_KEY`)
 - **Python**: `python3` (specifically used for host helper scripts like `download_cuepoints.py`, `download_slr_cuepoints.py`, `download_arp_cuepoints.py`, and `manage_compilations.py`)
 - **Bash Scripting**: `#!/usr/bin/env bash` using strict error handling.
@@ -87,6 +87,7 @@ _This file contains critical rules and patterns that AI agents must follow when 
 - **Database Migration Credentials:** When migrating `data/mariadb` from another machine, the users are not recreated. The `MARIADB_USER` and `MARIADB_PASSWORD` in `.env` must exactly match the existing migrated database users, or the service will remain unhealthy.
 - **Binary Permissions:** If migrating the `data/xbvr` folder, execution bits for bundled binaries might be lost. If `ffmpeg` or `ffprobe` fail with permission denied, explicitly `chmod 755` those binaries in `data/xbvr/bin/`.
 - **XBVR Proxy `NO_PROXY` Requirement:** When routing XBVR outbound traffic via `HTTP_PROXY` / `HTTPS_PROXY` (`http://gluetun:8888`), `NO_PROXY` MUST include `0.0.0.0,127.0.0.1,localhost,::1,::,mariadb,arp-webdav,jackett` because XBVR's internal WAMP logger connects to `ws://0.0.0.0:9998` and internal container services (`jackett`, `arp-webdav`) must bypass the external proxy.
+- **Gluetun WireGuard MTU, DNS & Server Persistence:** On `gluetun` (`xbvr-vpn`), always set `WIREGUARD_MTU: "1320"` (to skip the failing 6s PMTUD probe), `DNS_SERVER: "off"`, `DNS_UPSTREAM_RESOLVER_TYPE: "plain"`, and `DNS_UPSTREAM_PLAIN_ADDRESSES: "10.2.0.1:53"` (to use ProtonVPN's in-tunnel DNS and avoid DoT `1.1.1.1:853` resets), and mount `../data/gluetun:/gluetun` so the active ProtonVPN server list persists across container recreates.
 
 ---
 
@@ -106,4 +107,4 @@ _This file contains critical rules and patterns that AI agents must follow when 
 - Review quarterly for outdated rules
 - Remove rules that become obvious over time
 
-Last Updated: 2026-10-31
+Last Updated: 2026-11-08

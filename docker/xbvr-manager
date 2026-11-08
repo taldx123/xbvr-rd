@@ -10,6 +10,7 @@ COMPOSE_FILE="${DOCKER_DIR}/docker-compose.yml"
 MARIADB_DATA_DIR="${PROJECT_ROOT}/data/mariadb"
 XBVR_DATA_DIR="${PROJECT_ROOT}/data/xbvr"
 JACKETT_DATA_DIR="${PROJECT_ROOT}/data/jackett"
+GLUETUN_DATA_DIR="${PROJECT_ROOT}/data/gluetun"
 RCLONE_DIR="${PROJECT_ROOT}/data/rclone"
 RCLONE_CONFIG_DIR="${RCLONE_DIR}/config"
 RCLONE_CACHE_DIR="${RCLONE_DIR}/cache"
@@ -19,6 +20,7 @@ DIRS=(
   "${MARIADB_DATA_DIR}"
   "${XBVR_DATA_DIR}"
   "${JACKETT_DATA_DIR}"
+  "${GLUETUN_DATA_DIR}"
   "${RCLONE_CONFIG_DIR}"
   "${RCLONE_CACHE_DIR}"
   "${BACKUP_DIR}"
@@ -401,6 +403,17 @@ show_logs() {
     return
   }
 
+  local all_containers
+  all_containers="$(
+    cd "${DOCKER_DIR}" &&
+      docker compose --env-file "${ENV_FILE}" ps -a -q 2>/dev/null || true
+  )"
+  if [[ -z "${all_containers}" ]]; then
+    write_line "${COLOR_YELLOW}" "No stack containers are currently running. Start the stack first (option 3)."
+    pause_for_user
+    return
+  fi
+
   write_line "${COLOR_YELLOW}" "Showing live logs (Ctrl+C to stop)..."
   (
     cd "${DOCKER_DIR}" || exit 1
@@ -661,6 +674,14 @@ invoke_cleanup() {
   write_line "${COLOR_YELLOW}" "Deleting ${JACKETT_DATA_DIR} ..."
   if [[ -d "${JACKETT_DATA_DIR}" ]]; then
     rm -rf "${JACKETT_DATA_DIR}"
+    write_line "${COLOR_GREEN}" "  Deleted."
+  else
+    write_line "${COLOR_DARKGRAY}" "  Already gone."
+  fi
+
+  write_line "${COLOR_YELLOW}" "Deleting ${GLUETUN_DATA_DIR} ..."
+  if [[ -d "${GLUETUN_DATA_DIR}" ]]; then
+    rm -rf "${GLUETUN_DATA_DIR}"
     write_line "${COLOR_GREEN}" "  Deleted."
   else
     write_line "${COLOR_DARKGRAY}" "  Already gone."
@@ -1581,7 +1602,7 @@ is_vpn_running() {
 }
 
 wait_for_vpn_healthy() {
-  local max_wait=45
+  local max_wait=90
   local elapsed=0
   printf '%s' "Waiting for xbvr-vpn to connect..."
   while [[ ${elapsed} -lt ${max_wait} ]]; do
@@ -1804,7 +1825,7 @@ while true; do
   printf '%s\n' "  [A] Access files with ffprobe (Keepalive Menu)  (use '-T', '-P N', or '-ALL')"
   printf '%s\n' "  [M] Check files table for missing physical files"
   printf '%s\n' "  [C] Cuepoints Menu (timestamp.trade, SLR, ARP)"
-  printf '%s\n' "  [V] VPN Menu (ProtonVPN status, change country, enable/disable)"
+  printf '%s\n' "  [V] VPN Menu (ProtonVPN status, rotate IP, change country, enable/disable)"
   printf '%s\n' "  [8] View live logs"
   printf '%s\n' "  [9] Restart menu  (full stack or XBVR only)"
   printf '%s\n' "  [O] Open XBVR in Brave incognito"

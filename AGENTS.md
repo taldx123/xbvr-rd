@@ -17,6 +17,7 @@ This is a Docker-based deployment configuration repository for XBVR. The applica
 │   ├── mariadb/my.cnf
 │   └── xbvr-manager
 ├── data/             # Persistent data (gitignored)
+│   ├── gluetun/
 │   ├── jackett/
 │   ├── mariadb/
 │   ├── xbvr/
@@ -181,6 +182,10 @@ Ensure `fuse` or `fuse3` is installed on the Linux host.
 ### XBVR crashes on startup when HTTP_PROXY is set
 
 XBVR connects internally to its own WAMP router via `ws://0.0.0.0:9998`. Ensure `0.0.0.0`, `127.0.0.1`, `localhost`, `::1`, and `::` are included in `NO_PROXY` on the `xbvr` service so internal WebSocket connections bypass the `gluetun` HTTP proxy.
+
+### xbvr-vpn (Gluetun) slow startup or unhealthy timeout
+
+Gluetun's default Path MTU Discovery (PMTUD) and DNS-over-TLS (`1.1.1.1:853`) can time out or get TCP resets over ProtonVPN WireGuard tunnels, and outdated hardcoded server endpoints can cause repeated startup retries. Keep `WIREGUARD_MTU: "1320"`, `DNS_SERVER: "off"`, `DNS_UPSTREAM_RESOLVER_TYPE: "plain"`, `DNS_UPSTREAM_PLAIN_ADDRESSES: "10.2.0.1:53"`, and the `../data/gluetun:/gluetun` volume mount configured on the `gluetun` service.
 
 ## Notes
 

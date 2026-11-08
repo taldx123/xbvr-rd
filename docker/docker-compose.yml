@@ -71,19 +71,26 @@ services:
       VPN_TYPE: wireguard
       WIREGUARD_PRIVATE_KEY: ${PROTON_WG_PRIVATE_KEY}
       WIREGUARD_ADDRESSES: "10.2.0.2/32"
+      WIREGUARD_MTU: "1320"
       SERVER_COUNTRIES: ${PROTON_SERVER_COUNTRIES:-Netherlands}
       STREAM_ONLY: "on"
+      DNS_SERVER: "off"
+      DNS_UPSTREAM_RESOLVER_TYPE: "plain"
+      DNS_UPSTREAM_PLAIN_ADDRESSES: "10.2.0.1:53"
       HTTPPROXY: "on"
       HTTPPROXY_LISTENING_ADDRESS: ":8888"
+    volumes:
+      - ../data/gluetun:/gluetun
     restart: unless-stopped
     networks:
       - xbvr-net
     healthcheck:
       test: ["CMD", "/gluetun-entrypoint", "healthcheck"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 20s
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+      start_interval: 2s
 
   # -----------------------------------------------------------
   # Jackett – Indexer proxy for tracker search

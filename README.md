@@ -17,6 +17,7 @@ Docker-based XBVR deployment with MariaDB, XBVR application, ProtonVPN scraper p
 │   ├── mariadb/my.cnf
 │   └── xbvr-manager
 ├── data/
+│   ├── gluetun/
 │   ├── jackett/
 │   ├── mariadb/
 │   ├── xbvr/
@@ -168,7 +169,7 @@ The "Check missing files" tool (`M`) queries the database and runs parallel batc
 
 The SexLikeReal cuepoints option stores successfully resolved studio IDs in `/root/.config/xbvr/slr-studio-cache.tsv` to avoid duplicate API calls. Cache entries are valid for 5 days. Both the keepalive scan and the SLR cuepoints tool use multi-threaded batch fetching with a default maximum of 10 concurrent parallel workers.
 
-The "VPN Menu" (`V`) manages the `xbvr-vpn` (`qmcgaw/gluetun`) container, which connects to ProtonVPN via WireGuard and exposes an internal HTTP proxy (`http://gluetun:8888`) exclusively for XBVR's outbound scraping traffic. Video streaming to local VR headsets (HereSphere/DeoVR) and `rclone_rd` cloud downloads remain on your direct LAN/host connection at full speed. Rotating IPs or switching VPN countries from this menu recreates only `xbvr-vpn` with zero XBVR downtime.
+The "VPN Menu" (`V`) manages the `xbvr-vpn` (`qmcgaw/gluetun`) container, which connects to ProtonVPN via WireGuard (`WIREGUARD_MTU=1320`, in-tunnel plain DNS `10.2.0.1:53`, and persisted server metadata in `data/gluetun/`) and exposes an internal HTTP proxy (`http://gluetun:8888`) exclusively for XBVR's and Jackett's outbound scraping traffic. Video streaming to local VR headsets (HereSphere/DeoVR) and `rclone_rd` cloud downloads remain on your direct LAN/host connection at full speed. Rotating IPs or switching VPN countries from this menu recreates only `xbvr-vpn` with zero XBVR downtime.
 
 The "Compilations Menu" (`T`) scans your library for untagged compilation scenes using high-confidence lexical matching (titles, franchise series volumes, synopses, filenames), cuepoint density, and high-cast heuristics. It supports a non-destructive dry-run preview, auto-tagging Tier-1 matches, interactive confirmation for review candidates, and synchronizing the `tag group:compilations` umbrella tag. It writes to the `actions` table so applied tags persist across XBVR scraper updates.
 
@@ -214,6 +215,7 @@ docker compose --env-file .env down -v
 
 | Directory | Purpose |
 |-----------|---------|
+| `data/gluetun/` | Gluetun VPN server list and state |
 | `data/jackett/` | Jackett indexer configuration and cache |
 | `data/mariadb/` | MariaDB database files |
 | `data/xbvr/` | XBVR config and metadata |
